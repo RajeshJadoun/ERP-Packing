@@ -18,7 +18,6 @@
 
 ## Verification boundary
 
-- Static migration structure and test plan counts were reviewed.
-- GitHub Actions now starts a fresh local Supabase stack, applies migrations, and runs `supabase test db` on pushes and pull requests.
-- Runtime PostgreSQL/pgTAP remains **pending until the GitHub Actions run completes**; no runtime pass is claimed beforehand.
-- The live Supabase project still has no public tables or recorded migrations. No production migration was applied in this phase.
+- GitHub Actions successfully applied all migrations to a fresh local Supabase stack and ran the full pgTAP suite: **8 test files, 173 tests, Result: PASS**.
+- The successful push run is [here](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39316427157); pull-request validation also passed on commit `461035f06fa4b446bde1c2b0739d368f870e0e6e`.
+- The connected live Supabase project still reports zero public tables and zero recorded migrations. No schema was applied to the live project in this phase; the migration remains in the GitHub PR for review.
