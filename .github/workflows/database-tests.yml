@@ -1,0 +1,27 @@
+name: Supabase Database Tests
+on:
+  push:
+    branches: ["main", "phase-2.1.1-hardening"]
+  pull_request:
+    branches: ["main"]
+permissions:
+  contents: read
+jobs:
+  database-tests:
+    name: Apply migrations and run pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase
+        run: supabase start
+      - name: Run database tests
+        run: supabase test db
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup

@@ -6,7 +6,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(15);
+SELECT plan(16);
 
 -- 1. Verify RLS is enabled on all 33 tables
 SELECT is(
@@ -73,6 +73,9 @@ INSERT INTO public.profiles (id, full_name, role, is_active) VALUES
     ('22222222-2222-2222-2222-222222222222', 'Test Shopfloor Operator', 'OPERATOR', true)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
 
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
 -- 5. Test Profile Self-Protection: Operator cannot escalate role
 SELECT throws_ok(
     $$UPDATE public.profiles SET role = 'ADMIN' WHERE id = '22222222-2222-2222-2222-222222222222'$$,
@@ -106,16 +109,23 @@ SELECT is(
     'idempotency_responses has zero policies (strict default deny for direct PostgREST)'
 );
 
--- 9. Admin Profile RPC Access Control
--- Calling admin_update_profile_access without admin JWT context throws 42501 or 28000
+-- 9. Admin Profile RPC Access Control: unauthenticated caller is rejected.
+RESET ROLE;
+RESET request.jwt.claim.sub;
 SELECT throws_ok(
-    $$SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'STOREKEEPER', true, 'Promoted')$$,
+    $SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'STOREKEEPER', true, 'Promoted')$,
     '28000',
     'admin_update_profile_access rejects unauthenticated execution (SQLSTATE 28000)'
 );
 
--- 10. Verify Deactivated User Fails Closed
-UPDATE public.profiles SET is_active = false WHERE id = '22222222-2222-2222-2222-222222222222';
+-- 10. Deactivation via the authorized administrator RPC.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+SELECT lives_ok(
+    $SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'OPERATOR', false, 'Test deactivation')$,
+    'Administrator RPC deactivates an operator with an audit reason'
+);
+SET LOCAL request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 SELECT is(
     (SELECT role FROM public.profiles WHERE id = '22222222-2222-2222-2222-222222222222' AND is_active = true),
     NULL,

@@ -6,7 +6,7 @@
 
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(14);
 
 -- 1-3. Schema Verification
 SELECT has_table('public', 'purchase_orders', 'Table purchase_orders exists');
@@ -41,6 +41,9 @@ BEGIN
     SELECT id INTO v_unit_kg_id FROM public.units WHERE code = 'KG';
     SELECT id INTO v_unit_pcs_id FROM public.units WHERE code = 'PCS';
     SELECT id INTO v_cat_id FROM public.material_categories WHERE code = 'POLY_BAG';
+
+    INSERT INTO auth.users (id, email) VALUES (v_admin_id,'purchasing-admin@packing.test')
+    ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO public.profiles (id, full_name, role, is_active)
     VALUES (v_admin_id, 'Purchasing Admin', 'ADMIN', true)
@@ -209,18 +212,15 @@ SELECT is(
     'Identical idempotency retry produces no duplicate stock transactions'
 );
 
--- 11. Mismatched payload hash under same key throws 23505 conflict
-SELECT throws_ok(
-    $$
-    SELECT public.rpc_post_goods_receipt(
-        (SELECT id FROM public.goods_receipts WHERE grn_number = 'GRN-2026-PURCH-01'),
+-- 11. Client-supplied hash is ignored; the server fingerprints business arguments.
+SELECT is(
+    (public.rpc_post_goods_receipt(
+        (SELECT id FROM public.goods_receipts WHERE grn_number='GRN-2026-PURCH-01'),
         'req_purch_test_key_000000001',
         'tampered_hash_value_999'
-    )
-    $$,
-    '23505',
-    NULL,
-    'Idempotency protocol rejects tampered payload hash with conflict'
+    ))->>'status',
+    'POSTED',
+    'A forged client hash cannot override the server-computed fingerprint'
 );
 
 -- 12. Non-draft receipt re-posting with new key is rejected
@@ -237,5 +237,28 @@ SELECT throws_ok(
     'Posting an already POSTED receipt with new key fails with DRAFT status check failure'
 );
 
+-- Phase 2.1.1 regression: receipt entered in KG against a PO line ordered in PCS.
+DO $
+DECLARE v_po_id uuid; v_vendor_id uuid; v_material_id uuid; v_unit_kg uuid; v_unit_pcs uuid; v_location uuid;
+BEGIN
+ SELECT id INTO v_po_id FROM public.purchase_orders WHERE po_number='PO-2026-0001';
+ SELECT vendor_id INTO v_vendor_id FROM public.purchase_orders WHERE id=v_po_id;
+ SELECT id INTO v_material_id FROM public.materials WHERE material_code='MAT-POLY-200G';
+ SELECT id INTO v_unit_kg FROM public.units WHERE code='KG';
+ SELECT id INTO v_unit_pcs FROM public.units WHERE code='PCS';
+ SELECT id INTO v_location FROM public.locations WHERE location_code='LOC-DOCK-01';
+ INSERT INTO public.purchase_order_lines(id,po_id,material_id,ordered_quantity,unit_id)
+ VALUES('eeeeeeee-0004-0000-0000-000000000000',v_po_id,v_material_id,200,v_unit_pcs);
+ INSERT INTO public.goods_receipts(id,grn_number,vendor_id,po_id,invoice_number,invoice_date,received_date,destination_location_id,status)
+ VALUES('eeeeeeee-0005-0000-0000-000000000000','GRN-2026-PURCH-02',v_vendor_id,v_po_id,'INV-7789',current_date,current_date,v_location,'DRAFT');
+ INSERT INTO public.goods_receipt_lines(id,grn_id,purchase_order_line_id,material_id,entered_qty,entered_unit_id,rejected_qty,rejected_unit_id,accepted_qty,canonical_quantity,canonical_unit_id)
+ VALUES('eeeeeeee-0006-0000-0000-000000000000','eeeeeeee-0005-0000-0000-000000000000','eeeeeeee-0004-0000-0000-000000000000',v_material_id,1,v_unit_kg,0,v_unit_kg,1,999999,v_unit_kg);
+ PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
+ PERFORM public.rpc_post_goods_receipt('eeeeeeee-0005-0000-0000-000000000000','req_purch_test_key_000000002','client_hash_not_trusted');
+END $;
+SELECT is((SELECT received_quantity FROM public.purchase_order_lines WHERE id='eeeeeeee-0004-0000-0000-000000000000'),200::numeric,'1 KG receipt credits 200 PCS to the PO line unit');
+SELECT is((SELECT on_hand_quantity FROM public.material_location_balances
+ WHERE material_id=(SELECT id FROM public.materials WHERE material_code='MAT-POLY-200G') AND location_id=(SELECT id FROM public.locations WHERE location_code='LOC-DOCK-01')),
+ 50::numeric,'KG inventory increased by the authoritative 1 KG receipt');
 SELECT * FROM finish();
 ROLLBACK;

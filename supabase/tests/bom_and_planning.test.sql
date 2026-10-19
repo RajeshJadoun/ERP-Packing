@@ -7,24 +7,26 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(13);
+SELECT plan(18);
 
 -- 1. Setup Master Reference Data
 DO $$
 DECLARE
     v_unit_pcs_id uuid;
+    v_unit_kg_id uuid;
     v_cat_id uuid;
 BEGIN
     SELECT id INTO v_unit_pcs_id FROM public.units WHERE code = 'PCS';
+    SELECT id INTO v_unit_kg_id FROM public.units WHERE code = 'KG';
     SELECT id INTO v_cat_id FROM public.material_categories WHERE code = 'CORRUGATED_BOX';
 
     INSERT INTO auth.users (id, email) VALUES 
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'planner@packing.test')
     ON CONFLICT (id) DO NOTHING;
 
-    INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
+    INSERT INTO public.profiles (id, full_name, role, is_active) VALUES
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Test Planner', 'PLANNER', true)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET role='PLANNER', is_active=true;
 
     INSERT INTO public.parties (id, code, name)
     VALUES ('cccccccc-0001-0000-0000-000000000000', 'CUST-TATA', 'Tata Consumer Products')
@@ -155,9 +157,10 @@ SELECT throws_ok(
 );
 
 -- 9. Test: Revision below completed production must be rejected by RPC
+SET LOCAL request.jwt.claim.sub = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 SELECT throws_ok(
     $$
-    SELECT public.rpc_revise_packing_job('22222222-j001-0000-0000-000000000000', 500, 'Invalid reduction below completed')
+    SELECT public.rpc_revise_packing_job('22222222-j001-0000-0000-000000000000', 500, 'Invalid reduction below completed', 'req_phase211_revise_test_0001')
     $$,
     '23514',
     'Revision procedure rejects revising total planned quantity below completed production (500 < 530)'
@@ -165,7 +168,7 @@ SELECT throws_ok(
 
 -- 10. Test: Cancellation of remaining pending units (470 cancelled, pending=0, completed=530 preserved)
 SELECT is(
-    (SELECT (public.rpc_cancel_packing_job('22222222-j001-0000-0000-000000000000', 'Customer order cancelled'))->>'status'),
+    (SELECT (public.rpc_cancel_packing_job('22222222-j001-0000-0000-000000000000', 'Customer order cancelled', 'req_phase211_cancel_test_0001'))->>'status'),
     'CANCELLED',
     'Job cancelled successfully via rpc_cancel_packing_job'
 );
@@ -218,5 +221,44 @@ SELECT throws_ok(
     'Snapshot with is_customized=false and NULL source_bom_id rejected by check constraint'
 );
 
+-- Phase 2.1.1: BOM release freezes conversion into the material's canonical unit.
+INSERT INTO public.materials(id,material_code,name,category_id,canonical_unit_id)
+VALUES('eeeeeeee-0002-0000-0000-000000000000','MAT-BOX-CONV','Converted carton material',
+       (SELECT id FROM public.material_categories WHERE code='CORRUGATED_BOX'),
+       (SELECT id FROM public.units WHERE code='KG'));
+INSERT INTO public.material_conversions(id,material_id,from_unit_id,to_unit_id,conversion_factor,is_exact,effective_from,created_by)
+VALUES('eeeeeeee-0003-0000-0000-000000000000','eeeeeeee-0002-0000-0000-000000000000',
+       (SELECT id FROM public.units WHERE code='PCS'),(SELECT id FROM public.units WHERE code='KG'),0.005,true,
+       clock_timestamp()-interval '1 day','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb');
+INSERT INTO public.bom_lines(id,bom_id,material_id,quantity_per_unit,unit_id,is_optional,notes)
+VALUES('44444444-0001-0000-0000-000000000000','11111111-b002-0000-0000-000000000000',
+       'eeeeeeee-0002-0000-0000-000000000000',2,(SELECT id FROM public.units WHERE code='PCS'),false,'2 PCS -> 0.010 KG');
+INSERT INTO public.packing_jobs(id,daily_plan_id,job_code,party_id,product_id,master_bom_id,
+ original_planned_quantity,current_revised_quantity,completed_quantity,pending_quantity,cancelled_quantity,status)
+VALUES('22222222-j003-0000-0000-000000000000','ffffffff-0001-0000-0000-000000000000','JOB-RELEASE-CNV',
+ 'cccccccc-0001-0000-0000-000000000000','dddddddd-0001-0000-0000-000000000000',
+ '11111111-b002-0000-0000-000000000000',100,100,0,100,0,'DRAFT');
+SET LOCAL request.jwt.claim.sub = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+SELECT lives_ok(
+ $SELECT public.rpc_release_packing_job('22222222-j003-0000-0000-000000000000','req_phase211_release_bom_conversion_001')$,
+ 'BOM release freezes current canonical conversion'
+);
+SELECT is(
+ (SELECT canonical_qty_per_unit FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
+  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+ 0.010::numeric,'2 PCS freeze as 0.010 KG per finished unit'
+);
+SELECT is(
+ (SELECT conversion_rule_id FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
+  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+ 'eeeeeeee-0003-0000-0000-000000000000'::uuid,'Snapshot records authoritative conversion rule'
+);
+SELECT is(
+ (SELECT conversion_direction FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
+  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+ 'MULTIPLY'::text,'Snapshot freezes conversion direction'
+);
+SELECT public.rpc_release_packing_job('22222222-j003-0000-0000-000000000000','req_phase211_release_bom_conversion_001');
+SELECT is((SELECT count(*)::integer FROM public.packing_job_bom_snapshots WHERE packing_job_id='22222222-j003-0000-0000-000000000000'),1,'Same-key release retry does not create duplicate snapshots');
 SELECT * FROM finish();
 ROLLBACK;

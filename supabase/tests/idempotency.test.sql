@@ -19,7 +19,9 @@ BEGIN
     INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
         ('99999999-9999-9999-9999-999999999999', 'Idempotency Tester', 'ADMIN', true)
     ON CONFLICT (id) DO NOTHING;
-END $$;
+END $;
+
+SET LOCAL request.jwt.claim.sub = '99999999-9999-9999-9999-999999999999';
 
 -- 2. Test: Reject Key Under 16 Characters
 SELECT throws_ok(
