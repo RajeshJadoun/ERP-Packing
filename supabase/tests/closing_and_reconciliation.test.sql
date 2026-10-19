@@ -188,7 +188,7 @@ SELECT throws_ok(
         closed_by
     ) VALUES (
         (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S1'),
-        'SHIFT_A', current_date, 500, 400, 50, 0, -- 400 + 50 + 0 != 500!
+        'SHIFT_A', current_date + 1, 500, 400, 50, 0, -- Next day avoids duplicate closing key; conservation is the intended failure.
         '00000000-0000-0000-0000-000000000001'::uuid
     )
     $$,
