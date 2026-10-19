@@ -1,0 +1,2509 @@
+openapi: 3.0.3
+info:
+  title: Packing Material Inventory & BOM Management System REST API
+  description: |
+    Production-grade API specification for critical transactional business operations,
+    stock invariant enforcement, BOM versioning, worker custody tracking, and daily closing.
+    Updated through Phase 1.10 with exact protected operation counts (32 protected, 1 unauthenticated),
+    camelCase resourceReference in HTTP 410 expired responses (resourceType, resourceId, operationCompletedAt),
+    removal of invented surrogate idempotencyKeyId from response schemas, complete 10/10 resource recovery
+    mapping, 100% mandatory Idempotency-Key enforcement on all 20 POST commands, and strict separation between
+    transactional Flask commands and direct Supabase PostgREST master CRUD.
+  version: 1.10.0
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local Flask Development Server
+  - url: https://api.packing-stock-erp.internal/api/v1
+    description: Production Internal Application Cluster
+
+security:
+  - SupabaseJWT: []
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check endpoint
+      description: Returns the health status of the Flask application and PostgreSQL connection. This endpoint is unauthenticated and excluded from the global security policy.
+      security: []
+      responses:
+        '200':
+          description: Healthy status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "HEALTHY"
+                  database:
+                    type: string
+                    example: "CONNECTED"
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /admin/users/{targetId}/access:
+    post:
+      operationId: updateUserProfileAccess
+      summary: Change another user's application role or active status
+      description: Requires the actual caller's verified ADMIN JWT. The server forwards that JWT to the narrowly scoped database RPC; actor identity is derived from auth.uid(), never from request data.
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateProfileAccessRequest'
+      responses:
+        '200':
+          description: Access updated and audit record written
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileAccessUpdateResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /admin/users/{targetId}:
+    get:
+      operationId: getUserProfile
+      summary: Retrieve a user profile by ID
+      description: |
+        Returns the profile record for the specified user. Used as the post-410 authorized recovery endpoint
+        when resourceType is PROFILE. Requires ADMIN role.
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /purchase-orders:
+    post:
+      operationId: createPurchaseOrder
+      summary: Create a purchase order
+      description: Creates a new purchase order with line items in DRAFT or APPROVED status. Creating a PO does not increase physical stock.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePurchaseOrderRequest'
+      responses:
+        '201':
+          description: Purchase order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /purchase-orders/{id}:
+    get:
+      operationId: getPurchaseOrder
+      summary: Retrieve purchase order details
+      description: Returns the purchase order header, status, and line items. Used for post-expiry idempotency verification (resourceType = PURCHASE_ORDER) and procurement tracking.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Purchase order details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PurchaseOrderResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /boms:
+    post:
+      operationId: createMasterBom
+      summary: Create a master BOM
+      description: Creates a new master Bill of Materials in DRAFT status.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBomRequest'
+      responses:
+        '201':
+          description: BOM created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BomDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /boms/{id}/new-version:
+    post:
+      operationId: createBomVersion
+      summary: Release a new version of an existing BOM
+      description: Creates a new draft version increment from an existing BOM recipe.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - revisionReason
+                - lines
+              properties:
+                revisionReason:
+                  type: string
+                  example: "Changed screw size from M4x10mm to M4x12mm for improved torque."
+                lines:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BomLineInput'
+      responses:
+        '201':
+          description: New BOM version created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BomDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /boms/{id}/activate:
+    post:
+      operationId: activateBomVersion
+      summary: Promote draft BOM version to ACTIVE
+      description: Atomically marks the draft BOM version as ACTIVE and supersedes the currently active version for that recipe key.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: BOM promoted to active status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BomDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /boms/{id}:
+    get:
+      operationId: getBom
+      summary: Retrieve BOM details
+      description: Returns the master BOM header, active version, status, and recipe line items. Used for post-expiry idempotency verification (resourceType = BOM).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: BOM details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BomDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /goods-receipts/post:
+    post:
+      operationId: postGoodsReceipt
+      summary: Post a Goods Receipt (Inward)
+      description: Atomically updates receipt status to POSTED, validates accepted quantity, and appends inward stock movements with conversion provenance.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostGoodsReceiptRequest'
+      responses:
+        '200':
+          description: Goods receipt successfully posted to stock ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostGoodsReceiptResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /goods-receipts/{id}:
+    get:
+      operationId: getGoodsReceipt
+      summary: Retrieve Goods Receipt details
+      description: Returns the posted goods receipt header, line items, trusted calculations, and ledger transaction references. Used for post-expiry idempotency verification (resourceType = GOODS_RECEIPT).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Goods receipt details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostGoodsReceiptResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/issue-to-worker:
+    post:
+      operationId: issueStockToWorker
+      summary: Issue material to shop-floor worker custody
+      description: Internal transfer from STORE_SHELF to WORKER_CUSTODY. Physical company stock does not change.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueMaterialRequest'
+      responses:
+        '200':
+          description: Material issued to worker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/return-from-worker:
+    post:
+      operationId: returnStockFromWorker
+      summary: Return unused material from worker custody
+      description: Internal transfer from WORKER_CUSTODY back to STORE_SHELF. Physical company stock does not change.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnMaterialRequest'
+      responses:
+        '200':
+          description: Unused material returned to store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/transfer:
+    post:
+      operationId: transferStock
+      summary: Transfer material between internal warehouse locations
+      description: Transfers on-hand inventory between two active leaf storage locations (e.g. STORE_SHELF to SHOP_FLOOR_BUFFER). Source and destination must be distinct active leaves.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockTransferRequest'
+      responses:
+        '200':
+          description: Stock transferred successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/damage-quarantine:
+    post:
+      operationId: damageQuarantineStock
+      summary: Segregate damaged or rejected material into quarantine
+      description: Moves defective inventory to a DAMAGE_QUARANTINE leaf location. Quarantined stock remains on facility premises but is excluded from usable and ATP stock.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DamageQuarantineRequest'
+      responses:
+        '200':
+          description: Stock quarantined successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/scrap-disposal:
+    post:
+      operationId: scrapDisposalStock
+      summary: Permanently dispose of condemned quarantined material
+      description: Permanently reduces company physical inventory (SCRAP_DISPOSAL). The source location must strictly be a DAMAGE_QUARANTINE leaf node. Requires ADMIN role.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScrapDisposalRequest'
+      responses:
+        '200':
+          description: Stock written off and scrapped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/adjustments:
+    post:
+      operationId: postStockAdjustment
+      summary: Post a cycle count inventory adjustment
+      description: Corrects on-hand balances after physical auditing. Creates stock_adjustments record and single-direction FK from stock_transactions.stock_adjustment_id. Requires supervisor signoff.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustmentRequest'
+      responses:
+        '200':
+          description: Stock adjustment posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockAdjustmentDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/purchase-return:
+    post:
+      operationId: postPurchaseReturn
+      summary: Return defective material to vendor against a posted GRN
+      description: Returns accepted goods to supplier against an existing posted goods receipt. Enforces goods_receipt_id reference, vendor linkage, and non-negative stock reduction.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PurchaseReturnRequest'
+      responses:
+        '200':
+          description: Purchase return posted to ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockMovementResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/transactions/{id}:
+    get:
+      operationId: getStockTransaction
+      summary: Retrieve single stock transaction details
+      description: Returns the authoritative ledger record including movement type, source/destination leaf locations, quantities, and conversion provenance. Used for post-expiry idempotency verification (resourceType = STOCK_TRANSACTION).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Stock transaction details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockTransactionDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/adjustments/{id}:
+    get:
+      operationId: getStockAdjustment
+      summary: Retrieve a single stock adjustment record
+      description: |
+        Returns the audit-grade cycle count adjustment record including counted quantity, variance, supervisor approval,
+        and the linked stock transaction. Used as the post-410 authorized recovery endpoint when resource_type is
+        STOCK_ADJUSTMENT.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Stock adjustment details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockAdjustmentDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /stock/balances:
+    get:
+      operationId: getStockBalances
+      summary: Query material balances across locations
+      parameters:
+        - name: materialId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: locationId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aggregated on-hand, reserved, and available stock balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockBalanceItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+
+  /stock/ledger:
+    get:
+      operationId: getStockLedger
+      summary: Query authoritative append-only stock ledger
+      parameters:
+        - name: materialId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Filterable paginated view of immutable stock transaction movements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockTransactionDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+
+  /daily-plans:
+    post:
+      operationId: createDailyPlan
+      summary: Create a daily packing plan
+      description: Schedules packing jobs for a specific date and shift. Jobs can be master-derived or custom-specified. Requires a valid Idempotency-Key.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDailyPlanRequest'
+      responses:
+        '201':
+          description: Daily plan created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPlanDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /daily-plans/{id}:
+    get:
+      operationId: getDailyPlan
+      summary: Retrieve daily plan details
+      description: Returns the daily plan header, operating date, shift code, status, and associated packing jobs. Used for post-expiry idempotency verification (resourceType = DAILY_PLAN).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Daily plan details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPlanDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /daily-plans/{id}/release:
+    post:
+      operationId: releaseDailyPlan
+      summary: Release daily plan and freeze BOM snapshots
+      description: Validates snapshot lines, freezes immutable packing recipes, creates inventory reservations, and transitions plan status to RELEASED.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Daily plan successfully released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyPlanDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /packing-jobs/{id}/revise-quantity:
+    post:
+      operationId: revisePackingJobQuantity
+      summary: Revise job planned quantity (e.g. 520 to 450)
+      description: Enforces five-variable conservation. Rejection occurs if revised quantity is less than completed units. Recalculates material reservations.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - revisedQuantity
+                - reason
+              properties:
+                revisedQuantity:
+                  type: integer
+                  minimum: 1
+                  example: 450
+                reason:
+                  type: string
+                  example: "Truck capacity limitation"
+      responses:
+        '200':
+          description: Quantity revised
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingJobDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /packing-jobs/{id}/cancel:
+    post:
+      operationId: cancelPackingJob
+      summary: Cancel remaining pending quantity of a job
+      description: Preserves completed finished units and consumption. Sets cancelled_quantity = pending_quantity, sets pending_quantity = 0, and releases material reservations.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  example: "Customer cancelled remaining balance"
+      responses:
+        '200':
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingJobDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /packing-jobs/{id}:
+    get:
+      operationId: getPackingJob
+      summary: Retrieve packing job details
+      description: Returns the job status, five-variable conservation quantities, frozen snapshot lines, and material reservations. Used for post-expiry idempotency verification (resourceType = PACKING_JOB).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Packing job details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackingJobDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /production/completions:
+    post:
+      operationId: recordProductionCompletion
+      summary: Report finished goods production completion and log material consumption
+      description: Deducts materials from worker custody, calculates theoretical BOM requirements, logs physical measurements, variance, and appends completion ledger rows.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordProductionCompletionRequest'
+      responses:
+        '200':
+          description: Production completion and material consumption recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionCompletionDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /production/completions/{id}:
+    get:
+      operationId: getProductionCompletion
+      summary: Retrieve production completion details
+      description: Returns the completed batch record, packed units count, operator, and linked material consumption records with theoretical vs actual variance. Used for post-expiry idempotency verification (resourceType = PRODUCTION_COMPLETION).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Production completion details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionCompletionDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /closings:
+    post:
+      operationId: executeDailyClosing
+      summary: Execute shift/daily close
+      description: Summarizes completed production, detects discrepancies, checks worker custody, and locks the daily plan.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecuteDailyCloseRequest'
+      responses:
+        '200':
+          description: Daily plan closed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyClosingDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /closings/{id}:
+    get:
+      operationId: getDailyClosing
+      summary: Retrieve shift closing summary
+      description: Returns the daily closing report, status, discrepancy count, and supervisor override notes. Used for post-expiry idempotency verification (resourceType = DAILY_CLOSING).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Daily closing details retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyClosingDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /closings/{id}/reopen:
+    post:
+      operationId: reopenDailyClosing
+      summary: Reopen a closed daily plan
+      description: Restricted to ADMIN role with mandatory justification note.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reopenReason
+              properties:
+                reopenReason:
+                  type: string
+                  example: "Late second-shift packing output reconciliation approved by Plant Head."
+      responses:
+        '200':
+          description: Daily close reopened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyClosingDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+
+components:
+  securitySchemes:
+    SupabaseJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Supabase-issued JSON Web Token (JWT), obtained from the Supabase Auth `/auth/v1/token` endpoint.
+        The Flask application validates this token using the project's JWT secret (HS256) or JWKS (RS256).
+        The verified `sub` claim (auth.uid()) is used exclusively to derive the actor identity and is never
+        accepted from request body or header parameters. Tokens are forwarded server-side to the PostgreSQL
+        RPC layer where `get_current_user_role()` resolves the caller's application role under an empty
+        search path. The API comprises 33 operations (20 POST commands, 13 GET queries). Exactly 32 operations
+        are protected and require a valid Bearer token; GET /health is explicitly unauthenticated (security: []).
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+        pattern: '^[A-Za-z0-9_\-\.:]{16,128}$'
+      description: |
+        Globally unique opaque token for one state-changing command. Bounded format: 16–128 ASCII printable characters matching ^[A-Za-z0-9_\-\.:]{16,128}$.
+        Replay succeeds only when the verified JWT owner, server-normalized operation scope, and canonical payload hash match the original request.
+        If matching before response cache expiration, the server replays the stored 2xx response directly.
+        If the response cache has expired (retention window exceeded), HTTP 410 IDEMPOTENCY_RESPONSE_EXPIRED is returned with resource references;
+        the operation is never re-executed. Any existing-key mismatch returns generic HTTP 409 without disclosing cached data.
+
+  responses:
+    ErrorResponse:
+      description: Standardized error envelope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+
+    UnauthorizedResponse:
+      description: |
+        The request lacks valid authentication credentials. Either the Authorization header is absent,
+        the Bearer token is malformed, the JWT signature is invalid, or the token has expired.
+        The client must re-authenticate and obtain a fresh Supabase JWT before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            success: false
+            error:
+              code: "UNAUTHORIZED"
+              message: "Valid Bearer token is required to access this resource."
+              requestId: "req_01jb89c4z80000a1b2c3d4e5f6"
+              timestamp: "2026-10-15T08:00:00Z"
+
+    ForbiddenResponse:
+      description: |
+        The authenticated user does not have sufficient role permissions to perform this operation.
+        The server has verified the JWT identity but the caller's application role (resolved via
+        get_current_user_role() under RLS) does not satisfy the minimum required role for the endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+          example:
+            success: false
+            error:
+              code: "FORBIDDEN"
+              message: "Your application role does not permit this operation."
+              requestId: "req_01jb89c4z80000a1b2c3d4e5f6"
+              timestamp: "2026-10-15T08:00:00Z"
+
+    ConflictResponse:
+      description: Generic idempotency/replay conflict or concurrent mutation collision. The response never reveals a cached body, record identifiers, endpoint details, or owner identity from a prior request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardError'
+
+    IdempotencyExpiredResponse:
+      description: |
+        The idempotent operation was previously committed, but its cached response body has expired and been pruned.
+        The operation is never re-executed. The response provides the committed resource type, resource ID, and operation completion timestamp.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/IdempotencyExpiredError'
+
+  schemas:
+    StandardError:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - requestId
+            - timestamp
+          properties:
+            code:
+              type: string
+              example: "INSUFFICIENT_STOCK"
+            message:
+              type: string
+              example: "Insufficient stock available for material."
+            requestId:
+              type: string
+              example: "req_01jb89c4z80000a1b2c3d4e5f6"
+            timestamp:
+              type: string
+              format: date-time
+            details:
+              type: object
+
+    IdempotencyExpiredError:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - requestId
+            - timestamp
+            - resourceReference
+          properties:
+            code:
+              type: string
+              example: "IDEMPOTENCY_RESPONSE_EXPIRED"
+            message:
+              type: string
+              example: "The cached response for this idempotency key has expired and been pruned."
+            requestId:
+              type: string
+              example: "req_01jb89c4z80000a1b2c3d4e5f6"
+            timestamp:
+              type: string
+              format: date-time
+            resourceReference:
+              type: object
+              required:
+                - resourceType
+                - resourceId
+                - operationCompletedAt
+              properties:
+                resourceType:
+                  type: string
+                  enum:
+                    - GOODS_RECEIPT
+                    - PRODUCTION_COMPLETION
+                    - STOCK_TRANSACTION
+                    - STOCK_ADJUSTMENT
+                    - PURCHASE_ORDER
+                    - DAILY_PLAN
+                    - PACKING_JOB
+                    - DAILY_CLOSING
+                    - BOM
+                    - PROFILE
+                  example: "GOODS_RECEIPT"
+                resourceId:
+                  type: string
+                  format: uuid
+                  example: "c4b1e5a2-9382-4f01-b3de-7c3a882a1d2e"
+                operationCompletedAt:
+                  type: string
+                  format: date-time
+                  example: "2026-10-15T08:30:00Z"
+
+    AdminUpdateProfileAccessRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - role
+        - isActive
+        - reason
+      properties:
+        role:
+          type: string
+          enum: [ADMIN, STOREKEEPER, PLANNER, OPERATOR, VIEWER]
+          example: "STOREKEEPER"
+        isActive:
+          type: boolean
+          example: true
+        reason:
+          type: string
+          minLength: 10
+          example: "Promoted to storekeeper after warehouse training completed."
+
+    CreatePurchaseOrderRequest:
+      type: object
+      required:
+        - poNumber
+        - vendorId
+        - orderDate
+        - expectedDeliveryDate
+        - lines
+      properties:
+        poNumber:
+          type: string
+          example: "PO-2026-1001"
+        vendorId:
+          type: string
+          format: uuid
+        orderDate:
+          type: string
+          format: date
+        expectedDeliveryDate:
+          type: string
+          format: date
+        notes:
+          type: string
+          example: "Urgent delivery required for export batch."
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineInput'
+
+    PurchaseOrderLineInput:
+      type: object
+      required:
+        - materialId
+        - orderedQuantity
+        - unitId
+        - unitPrice
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        orderedQuantity:
+          type: number
+          minimum: 0.001
+          example: 500
+        unitId:
+          type: string
+          format: uuid
+        unitPrice:
+          type: number
+          minimum: 0
+          example: 12.50
+
+    PurchaseOrderResponse:
+      type: object
+      required:
+        - id
+        - poNumber
+        - vendorId
+        - status
+        - orderDate
+        - lines
+      properties:
+        id:
+          type: string
+          format: uuid
+        poNumber:
+          type: string
+          example: "PO-2026-1001"
+        vendorId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [DRAFT, APPROVED, PARTIALLY_RECEIVED, COMPLETED, CANCELLED]
+          example: "APPROVED"
+        orderDate:
+          type: string
+          format: date
+        expectedDeliveryDate:
+          type: string
+          format: date
+        notes:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PurchaseOrderLineResponse'
+
+    PurchaseOrderLineResponse:
+      type: object
+      required:
+        - id
+        - materialId
+        - orderedQuantity
+        - receivedQuantity
+        - unitId
+      properties:
+        id:
+          type: string
+          format: uuid
+        materialId:
+          type: string
+          format: uuid
+        orderedQuantity:
+          type: number
+          example: 500
+        receivedQuantity:
+          type: number
+          example: 0
+        unitId:
+          type: string
+          format: uuid
+        unitPrice:
+          type: number
+          example: 12.50
+
+    BomLineInput:
+      type: object
+      required:
+        - materialId
+        - quantityPerUnit
+        - unitId
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        quantityPerUnit:
+          type: number
+          minimum: 0.0001
+          example: 4.0
+        unitId:
+          type: string
+          format: uuid
+        isOptional:
+          type: boolean
+          default: false
+        applicationNotes:
+          type: string
+          example: "Apply to top and bottom flaps."
+
+    CreateBomRequest:
+      type: object
+      required:
+        - productId
+        - packingVariantName
+        - lines
+      properties:
+        productId:
+          type: string
+          format: uuid
+        partyId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Nullable for universal standard packaging; set for customer-specific packaging.
+        packingVariantName:
+          type: string
+          example: "Domestic Standard"
+        versionNotes:
+          type: string
+          example: "Initial approved recipe"
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BomLineInput'
+
+    BomDetailResponse:
+      type: object
+      required:
+        - id
+        - productId
+        - packingVariantName
+        - versionNumber
+        - status
+        - lines
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        partyId:
+          type: string
+          format: uuid
+          nullable: true
+        packingVariantName:
+          type: string
+          example: "Domestic Standard"
+        versionNumber:
+          type: integer
+          example: 1
+        status:
+          type: string
+          enum: [DRAFT, ACTIVE, SUPERSEDED, ARCHIVED]
+          example: "ACTIVE"
+        versionNotes:
+          type: string
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BomLineInput'
+
+    PostGoodsReceiptRequest:
+      type: object
+      required:
+        - vendorId
+        - invoiceNumber
+        - invoiceDate
+        - receivedDate
+        - destinationLocationId
+        - lines
+      properties:
+        vendorId:
+          type: string
+          format: uuid
+        poId:
+          type: string
+          format: uuid
+          nullable: true
+        invoiceNumber:
+          type: string
+          example: "INV-2026-9912"
+        invoiceDate:
+          type: string
+          format: date
+        receivedDate:
+          type: string
+          format: date
+        destinationLocationId:
+          type: string
+          format: uuid
+        vehicleNumber:
+          type: string
+          example: "MH-12-AB-1234"
+        transporterName:
+          type: string
+          example: "Speed Logistics"
+        eWayBillNumber:
+          type: string
+          example: "EWB-8812938192"
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/GoodsReceiptLineInput'
+
+    GoodsReceiptLineInput:
+      type: object
+      required:
+        - materialId
+        - enteredQuantity
+        - enteredUnitId
+        - rejectedQuantity
+        - rejectedUnitId
+        - measurementMethod
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        enteredQuantity:
+          type: number
+          minimum: 0.001
+          example: 25.0
+        enteredUnitId:
+          type: string
+          format: uuid
+        rejectedQuantity:
+          type: number
+          minimum: 0
+          example: 0.0
+        rejectedUnitId:
+          type: string
+          format: uuid
+        boxCount:
+          type: integer
+          minimum: 0
+          nullable: true
+          example: 5
+        grossWeightKg:
+          type: number
+          minimum: 0
+          nullable: true
+          example: 26.2
+        pieceCount:
+          type: integer
+          minimum: 0
+          nullable: true
+        measurementMethod:
+          type: string
+          enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
+          example: "SCALE_WEIGHED"
+        scaleEvidenceNote:
+          type: string
+          example: "Weighed on Mettler Toledo Scale #2, calibrated 2026-10-01"
+        displayEstimatePcs:
+          type: integer
+          nullable: true
+          description: Client-entered non-authoritative reference estimate.
+
+    PostGoodsReceiptResponse:
+      type: object
+      required:
+        - goodsReceiptId
+        - status
+        - postedAt
+        - lines
+      properties:
+        goodsReceiptId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: "POSTED"
+        postedAt:
+          type: string
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PostedGoodsReceiptLine'
+
+    PostedGoodsReceiptLine:
+      type: object
+      required:
+        - lineId
+        - materialId
+        - acceptedQuantity
+        - acceptedUnitId
+        - canonicalQuantity
+        - canonicalUnitId
+        - conversionClassification
+      properties:
+        lineId:
+          type: string
+          format: uuid
+        materialId:
+          type: string
+          format: uuid
+        acceptedQuantity:
+          type: number
+          example: 25.0
+        acceptedUnitId:
+          type: string
+          format: uuid
+        canonicalQuantity:
+          type: number
+          example: 25.0
+        canonicalUnitId:
+          type: string
+          format: uuid
+        conversionRuleId:
+          type: string
+          format: uuid
+          nullable: true
+        conversionFactorApplied:
+          type: number
+          example: 1.0
+        conversionDirection:
+          type: string
+          enum: [MULTIPLY, DIVIDE, NONE]
+          example: "NONE"
+        conversionClassification:
+          type: string
+          enum: [EXACT, ESTIMATED]
+          example: "EXACT"
+        estimatedSecondaryQuantity:
+          type: number
+          nullable: true
+          example: 2500
+        estimatedSecondaryUnitId:
+          type: string
+          format: uuid
+          nullable: true
+        stockTransactionId:
+          type: string
+          format: uuid
+
+    StockBalanceItem:
+      type: object
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        materialCode:
+          type: string
+          example: "BOX-001"
+        materialName:
+          type: string
+          example: "Master Corrugated Carton"
+        categoryName:
+          type: string
+          example: "Cartons"
+        locationId:
+          type: string
+          format: uuid
+        locationCode:
+          type: string
+          example: "SHELF-A1"
+        locationType:
+          type: string
+          example: "STORE_SHELF"
+        onHandQuantity:
+          type: number
+          example: 1500.0
+        canonicalUnitCode:
+          type: string
+          example: "PCS"
+        estimatedSecondaryQuantity:
+          type: number
+          nullable: true
+        secondaryUnitCode:
+          type: string
+          nullable: true
+
+    PurchaseReturnRequest:
+      type: object
+      required:
+        - goodsReceiptId
+        - materialId
+        - returnQuantity
+        - returnUnitId
+        - sourceLocationId
+        - reason
+      properties:
+        goodsReceiptId:
+          type: string
+          format: uuid
+        materialId:
+          type: string
+          format: uuid
+        returnQuantity:
+          type: number
+          minimum: 0.001
+          example: 10.0
+        returnUnitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          example: "Delivered cartons failed bursting test."
+
+    PackingJobQuantityStatus:
+      type: object
+      required:
+        - originalPlannedQuantity
+        - currentRevisedQuantity
+        - completedQuantity
+        - pendingQuantity
+        - cancelledQuantity
+      properties:
+        originalPlannedQuantity:
+          type: integer
+          example: 520
+        currentRevisedQuantity:
+          type: integer
+          example: 450
+        completedQuantity:
+          type: integer
+          example: 100
+        pendingQuantity:
+          type: integer
+          example: 350
+        cancelledQuantity:
+          type: integer
+          example: 0
+
+    IssueMaterialRequest:
+      type: object
+      required:
+        - workerId
+        - materialId
+        - quantity
+        - unitId
+        - sourceLocationId
+        - destinationLocationId
+        - measurementMethod
+      properties:
+        workerId:
+          type: string
+          format: uuid
+        jobId:
+          type: string
+          format: uuid
+          nullable: true
+        materialId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          minimum: 0.001
+          example: 400.0
+        unitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+        destinationLocationId:
+          type: string
+          format: uuid
+        measurementMethod:
+          type: string
+          enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
+          example: "SEALED_BUNDLE"
+        measurementEvidence:
+          type: string
+          example: "Issued 4 sealed bags of 100 pcs"
+
+    ReturnMaterialRequest:
+      type: object
+      required:
+        - workerId
+        - materialId
+        - quantity
+        - unitId
+        - sourceLocationId
+        - destinationLocationId
+        - measurementMethod
+      properties:
+        workerId:
+          type: string
+          format: uuid
+        materialId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          minimum: 0.001
+          example: 50.0
+        unitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+        destinationLocationId:
+          type: string
+          format: uuid
+        measurementMethod:
+          type: string
+          enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
+          example: "MANUALLY_COUNTED"
+
+    StockTransferRequest:
+      type: object
+      required:
+        - materialId
+        - quantity
+        - unitId
+        - sourceLocationId
+        - destinationLocationId
+        - reason
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          minimum: 0.001
+          example: 200.0
+        unitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+        destinationLocationId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          example: "Replenishing shop floor buffer from store shelf"
+
+    DamageQuarantineRequest:
+      type: object
+      required:
+        - materialId
+        - quantity
+        - unitId
+        - sourceLocationId
+        - destinationLocationId
+        - quarantineReason
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          minimum: 0.001
+          example: 15.0
+        unitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+        destinationLocationId:
+          type: string
+          format: uuid
+        quarantineReason:
+          type: string
+          example: "Water damaged during roof leak"
+
+    ScrapDisposalRequest:
+      type: object
+      required:
+        - materialId
+        - quantity
+        - unitId
+        - sourceLocationId
+        - disposalReason
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        quantity:
+          type: number
+          minimum: 0.001
+          example: 15.0
+        unitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+          description: Must strictly be an active DAMAGE_QUARANTINE leaf location.
+        disposalReason:
+          type: string
+          example: "Condemned damaged cartons destroyed in compactor"
+
+    StockAdjustmentRequest:
+      type: object
+      required:
+        - materialId
+        - locationId
+        - countedQuantity
+        - countedUnitId
+        - adjustmentReason
+        - supervisorApprovedBy
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        countedQuantity:
+          type: number
+          minimum: 0
+          example: 1480.0
+        countedUnitId:
+          type: string
+          format: uuid
+        adjustmentReason:
+          type: string
+          example: "Quarterly cycle count physical variance (-20 PCS)"
+        supervisorApprovedBy:
+          type: string
+          format: uuid
+
+    StockTransactionDetailResponse:
+      type: object
+      required:
+        - id
+        - movementType
+        - materialId
+        - canonicalQuantity
+        - canonicalUnitId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        movementType:
+          type: string
+          enum:
+            - PURCHASE_RECEIPT
+            - ISSUE_TO_WORKER
+            - RETURN_FROM_WORKER
+            - LOCATION_TRANSFER
+            - DAMAGE_QUARANTINE
+            - SCRAP_DISPOSAL
+            - STOCK_ADJUSTMENT
+            - PURCHASE_RETURN
+            - CONSUMPTION
+        materialId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+          nullable: true
+        destinationLocationId:
+          type: string
+          format: uuid
+          nullable: true
+        enteredQuantity:
+          type: number
+        enteredUnitId:
+          type: string
+          format: uuid
+        canonicalQuantity:
+          type: number
+        canonicalUnitId:
+          type: string
+          format: uuid
+        conversionFactorApplied:
+          type: number
+        conversionDirection:
+          type: string
+          enum: [MULTIPLY, DIVIDE, NONE]
+        measurementMethod:
+          type: string
+        goodsReceiptId:
+          type: string
+          format: uuid
+          nullable: true
+        packingJobId:
+          type: string
+          format: uuid
+          nullable: true
+        productionCompletionId:
+          type: string
+          format: uuid
+          nullable: true
+        stockAdjustmentId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateDailyPlanRequest:
+      type: object
+      required:
+        - planDate
+        - shiftCode
+      properties:
+        planDate:
+          type: string
+          format: date
+          example: "2026-10-15"
+        shiftCode:
+          type: string
+          example: "SHIFT_1"
+        notes:
+          type: string
+        masterDerivedJobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/MasterDerivedJobInput'
+        customJobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomJobInput'
+
+    MasterDerivedJobInput:
+      type: object
+      required:
+        - partyId
+        - productId
+        - masterBomId
+        - plannedQuantity
+      properties:
+        partyId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        masterBomId:
+          type: string
+          format: uuid
+        plannedQuantity:
+          type: integer
+          minimum: 1
+          example: 1000
+
+    CustomJobInput:
+      type: object
+      required:
+        - partyId
+        - productId
+        - plannedQuantity
+        - customBomLines
+      properties:
+        partyId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        plannedQuantity:
+          type: integer
+          minimum: 1
+          example: 250
+        customBomLines:
+          type: array
+          items:
+            $ref: '#/components/schemas/BomLineInput'
+
+    DailyPlanDetailResponse:
+      type: object
+      required:
+        - id
+        - planDate
+        - shiftCode
+        - status
+        - jobs
+      properties:
+        id:
+          type: string
+          format: uuid
+        planDate:
+          type: string
+          format: date
+        shiftCode:
+          type: string
+          example: "SHIFT_1"
+        status:
+          type: string
+          enum: [DRAFT, RELEASED, CLOSED, ARCHIVED]
+          example: "RELEASED"
+        notes:
+          type: string
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PackingJobDetailResponse'
+
+    PackingJobDetailResponse:
+      type: object
+      required:
+        - id
+        - jobCode
+        - dailyPlanId
+        - partyId
+        - productId
+        - status
+        - quantityStatus
+      properties:
+        id:
+          type: string
+          format: uuid
+        jobCode:
+          type: string
+          example: "JOB-20261015-001"
+        dailyPlanId:
+          type: string
+          format: uuid
+        partyId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        masterBomId:
+          type: string
+          format: uuid
+          nullable: true
+        isCustomized:
+          type: boolean
+          example: false
+        status:
+          type: string
+          enum: [PENDING, RELEASED, IN_PROGRESS, PARTIALLY_COMPLETED, COMPLETED, CANCELLED]
+          example: "RELEASED"
+        quantityStatus:
+          $ref: '#/components/schemas/PackingJobQuantityStatus'
+
+    RecordProductionCompletionRequest:
+      type: object
+      required:
+        - packingJobId
+        - completedUnits
+        - workerId
+        - completionPolicy
+      properties:
+        packingJobId:
+          type: string
+          format: uuid
+        completedUnits:
+          type: integer
+          minimum: 1
+          example: 530
+        workerId:
+          type: string
+          format: uuid
+        completionPolicy:
+          type: string
+          enum: [AUTO_BOM_THEORETICAL, CONFIRMED_ACTUAL_ENTRY]
+          example: "AUTO_BOM_THEORETICAL"
+        actualMaterialUsage:
+          type: array
+          description: Provided when completionPolicy is CONFIRMED_ACTUAL_ENTRY
+          items:
+            type: object
+            required:
+              - materialId
+              - physicallyConfirmedQuantity
+              - unitId
+              - measurementMethod
+            properties:
+              materialId:
+                type: string
+                format: uuid
+              physicallyConfirmedQuantity:
+                type: number
+                minimum: 0
+                example: 532.0
+              unitId:
+                type: string
+                format: uuid
+              measurementMethod:
+                type: string
+                enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
+                example: "SCALE_WEIGHED"
+
+    ProductionCompletionDetailResponse:
+      type: object
+      required:
+        - id
+        - packingJobId
+        - completedUnits
+        - workerId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        packingJobId:
+          type: string
+          format: uuid
+        completedUnits:
+          type: integer
+          example: 530
+        workerId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        consumptions:
+          type: array
+          items:
+            type: object
+            required:
+              - materialId
+              - theoreticalQuantity
+              - varianceStatus
+            properties:
+              materialId:
+                type: string
+                format: uuid
+              theoreticalQuantity:
+                type: number
+                example: 530.0
+              physicallyConfirmedQuantity:
+                type: number
+                nullable: true
+              varianceQuantity:
+                type: number
+                nullable: true
+              varianceStatus:
+                type: string
+                enum: [UNVERIFIED, VERIFIED_ZERO, VARIANCE_RECORDED]
+                example: "UNVERIFIED"
+
+    ExecuteDailyCloseRequest:
+      type: object
+      required:
+        - dailyPlanId
+        - shiftCode
+      properties:
+        dailyPlanId:
+          type: string
+          format: uuid
+        shiftCode:
+          type: string
+          example: "SHIFT_1"
+        allowDiscrepancyOverride:
+          type: boolean
+          default: false
+        supervisorOverrideReason:
+          type: string
+          description: Mandatory if allowDiscrepancyOverride is true.
+          example: "Operator on emergency leave; 50 unused screws will be counted and returned tomorrow morning."
+
+    DailyClosingDetailResponse:
+      type: object
+      required:
+        - id
+        - dailyPlanId
+        - shiftCode
+        - closedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        dailyPlanId:
+          type: string
+          format: uuid
+        shiftCode:
+          type: string
+          example: "SHIFT_1"
+        totalJobsPlanned:
+          type: integer
+          example: 4
+        totalUnitsPacked:
+          type: integer
+          example: 1850
+        unresolvedDiscrepanciesCount:
+          type: integer
+          example: 0
+        supervisorOverrideReason:
+          type: string
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+
+    StockMovementResponse:
+      description: |
+        Standard success envelope returned by all stock movement commands (issue-to-worker,
+        return-from-worker, transfer, damage-quarantine, scrap-disposal, purchase-return).
+        Contains the created stock transaction identifier and a summary for client confirmation.
+      type: object
+      required:
+        - success
+        - stockTransactionId
+        - movementType
+        - materialId
+        - canonicalQuantity
+        - canonicalUnitId
+        - sourceLocationId
+        - destinationLocationId
+        - createdAt
+      properties:
+        success:
+          type: boolean
+          example: true
+        stockTransactionId:
+          type: string
+          format: uuid
+          description: The immutable ledger row ID created for this movement.
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        movementType:
+          type: string
+          enum:
+            - ISSUE_TO_WORKER
+            - RETURN_FROM_WORKER
+            - LOCATION_TRANSFER
+            - DAMAGE_QUARANTINE
+            - SCRAP_DISPOSAL
+            - PURCHASE_RETURN
+          example: "ISSUE_TO_WORKER"
+        materialId:
+          type: string
+          format: uuid
+        canonicalQuantity:
+          type: number
+          description: Server-computed authoritative quantity in the material's canonical unit.
+          example: 400.0
+        canonicalUnitId:
+          type: string
+          format: uuid
+        sourceLocationId:
+          type: string
+          format: uuid
+          nullable: true
+        destinationLocationId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    StockAdjustmentDetailResponse:
+      description: |
+        Audit-grade cycle count adjustment record. Returned by POST /stock/adjustments on success
+        and by GET /stock/adjustments/{id} for post-410 recovery (resourceType = STOCK_ADJUSTMENT).
+      type: object
+      required:
+        - id
+        - materialId
+        - locationId
+        - countedQuantity
+        - countedUnitId
+        - systemQuantityBefore
+        - varianceQuantity
+        - adjustmentReason
+        - supervisorApprovedBy
+        - stockTransactionId
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The stock_adjustments table primary key.
+        materialId:
+          type: string
+          format: uuid
+        locationId:
+          type: string
+          format: uuid
+        countedQuantity:
+          type: number
+          description: Physical count quantity in counted unit.
+          example: 1480.0
+        countedUnitId:
+          type: string
+          format: uuid
+        systemQuantityBefore:
+          type: number
+          description: System on-hand balance immediately prior to adjustment, in canonical unit.
+          example: 1500.0
+        varianceQuantity:
+          type: number
+          description: Signed difference (counted_canonical - system_before). Negative = shrinkage.
+          example: -20.0
+        adjustmentReason:
+          type: string
+          example: "Quarterly cycle count physical variance (-20 PCS)"
+        supervisorApprovedBy:
+          type: string
+          format: uuid
+          description: UUID of the supervisor profile who authorized the adjustment.
+        stockTransactionId:
+          type: string
+          format: uuid
+          description: The single stock_transactions row created by this adjustment.
+        createdAt:
+          type: string
+          format: date-time
+
+    ProfileResponse:
+      description: |
+        User profile record. Returned by GET /admin/users/{targetId} for post-410 recovery
+        (resourceType = PROFILE) and by the updateUserProfileAccess command.
+      type: object
+      required:
+        - id
+        - email
+        - role
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Supabase auth.uid() — the profile primary key.
+        email:
+          type: string
+          format: email
+          example: "storekeeper@factory.internal"
+        fullName:
+          type: string
+          nullable: true
+          example: "Ramesh Kumar"
+        role:
+          type: string
+          enum: [ADMIN, STOREKEEPER, PLANNER, OPERATOR, VIEWER]
+          example: "STOREKEEPER"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProfileAccessUpdateResponse:
+      description: |
+        Confirmation envelope returned after a successful POST /admin/users/{targetId}/access command.
+        Contains the updated profile state and the audit log entry ID for traceability.
+      type: object
+      required:
+        - success
+        - profile
+        - auditLogId
+      properties:
+        success:
+          type: boolean
+          example: true
+        profile:
+          $ref: '#/components/schemas/ProfileResponse'
+        auditLogId:
+          type: string
+          format: uuid
+          description: The audit_logs row ID created for this role/status change event.
