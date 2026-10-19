@@ -166,9 +166,9 @@ SELECT ok(
         SELECT 1 FROM pg_policies 
         WHERE schemaname = 'public' 
           AND tablename = 'daily_plans' 
-          AND policyname = 'daily_plans_update_planner_admin'
+          AND policyname = 'daily_plans_update_draft_planner_admin'
     ),
-    'daily_plans has direct update policy daily_plans_update_planner_admin'
+    'daily_plans has direct update policy daily_plans_update_draft_planner_admin'
 );
 
 SELECT * FROM finish();

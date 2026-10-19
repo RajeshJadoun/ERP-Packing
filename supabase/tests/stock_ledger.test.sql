@@ -257,6 +257,10 @@ SELECT is(
 );
 
 -- 10. Test: Non-Negative Stock Check (Attempt to transfer 800 KG from shelf with only 700 KG)
+-- Idempotency header required by the stock transaction foreign key.
+INSERT INTO public.idempotency_keys (idempotency_key, owner_id, operation_scope, request_hash, status)
+VALUES ('test_key_0000000000000009', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'POST:/api/v1/stock/transfer', 'hash9', 'COMPLETED');
+
 SELECT throws_ok(
     $$
     INSERT INTO public.stock_transactions (
