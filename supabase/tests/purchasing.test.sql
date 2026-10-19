@@ -238,7 +238,7 @@ SELECT throws_ok(
 );
 
 -- Phase 2.1.1 regression: receipt entered in KG against a PO line ordered in PCS.
-DO $
+DO $$
 DECLARE v_po_id uuid; v_vendor_id uuid; v_material_id uuid; v_unit_kg uuid; v_unit_pcs uuid; v_location uuid;
 BEGIN
  SELECT id INTO v_po_id FROM public.purchase_orders WHERE po_number='PO-2026-0001';
@@ -255,7 +255,7 @@ BEGIN
  VALUES('eeeeeeee-0006-0000-0000-000000000000','eeeeeeee-0005-0000-0000-000000000000','eeeeeeee-0004-0000-0000-000000000000',v_material_id,1,v_unit_kg,0,v_unit_kg,1,999999,v_unit_kg);
  PERFORM set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
  PERFORM public.rpc_post_goods_receipt('eeeeeeee-0005-0000-0000-000000000000','req_purch_test_key_000000002','client_hash_not_trusted');
-END $;
+END $$;
 SELECT is((SELECT received_quantity FROM public.purchase_order_lines WHERE id='eeeeeeee-0004-0000-0000-000000000000'),200::numeric,'1 KG receipt credits 200 PCS to the PO line unit');
 SELECT is((SELECT on_hand_quantity FROM public.material_location_balances
  WHERE material_id=(SELECT id FROM public.materials WHERE material_code='MAT-POLY-200G') AND location_id=(SELECT id FROM public.locations WHERE location_code='LOC-DOCK-01')),

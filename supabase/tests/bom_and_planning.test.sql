@@ -67,6 +67,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Second active BOM rejected by idx_boms_single_active_version (duplicate active version)'
 );
 
@@ -106,6 +107,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Second active generic BOM with NULL party_id rejected (NULLS NOT DISTINCT treated equal)'
 );
 
@@ -119,15 +121,15 @@ INSERT INTO public.packing_jobs (
     original_planned_quantity, current_revised_quantity,
     completed_quantity, pending_quantity, cancelled_quantity, status
 ) VALUES (
-    '22222222-j001-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-TEST-001',
+    '22222222-a001-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-TEST-001',
     'cccccccc-0001-0000-0000-000000000000', 'dddddddd-0001-0000-0000-000000000000',
     '11111111-b002-0000-0000-000000000000',
     1000, 1000, 0, 1000, 0, 'RELEASED'
 );
 
 SELECT is(
-    (SELECT current_revised_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
-    (SELECT completed_quantity + pending_quantity + cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT current_revised_quantity FROM public.packing_jobs WHERE id = '22222222-a001-0000-0000-000000000000'),
+    (SELECT completed_quantity + pending_quantity + cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-a001-0000-0000-000000000000'),
     'Conservation check verified at release: 1000 = 0 + 1000 + 0'
 );
 
@@ -137,10 +139,10 @@ SET completed_quantity = 530,
     pending_quantity = 470,
     status = 'PARTIALLY_COMPLETED',
     updated_at = clock_timestamp()
-WHERE id = '22222222-j001-0000-0000-000000000000';
+WHERE id = '22222222-a001-0000-0000-000000000000';
 
 SELECT is(
-    (SELECT pending_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT pending_quantity FROM public.packing_jobs WHERE id = '22222222-a001-0000-0000-000000000000'),
     470,
     'Pending quantity exactly equals 470 after completing 530 units'
 );
@@ -150,9 +152,10 @@ SELECT throws_ok(
     $$
     UPDATE public.packing_jobs
     SET completed_quantity = 600
-    WHERE id = '22222222-j001-0000-0000-000000000000'
+    WHERE id = '22222222-a001-0000-0000-000000000000'
     $$,
-    'chk_packing_jobs_conservation',
+    '23514',
+    NULL,
     'Imbalanced update rejected by chk_packing_jobs_conservation constraint'
 );
 
@@ -160,27 +163,28 @@ SELECT throws_ok(
 SET LOCAL request.jwt.claim.sub = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 SELECT throws_ok(
     $$
-    SELECT public.rpc_revise_packing_job('22222222-j001-0000-0000-000000000000', 500, 'Invalid reduction below completed', 'req_phase211_revise_test_0001')
+    SELECT public.rpc_revise_packing_job('22222222-a001-0000-0000-000000000000', 500, 'Invalid reduction below completed', 'req_phase211_revise_test_0001')
     $$,
     '23514',
+    NULL,
     'Revision procedure rejects revising total planned quantity below completed production (500 < 530)'
 );
 
 -- 10. Test: Cancellation of remaining pending units (470 cancelled, pending=0, completed=530 preserved)
 SELECT is(
-    (SELECT (public.rpc_cancel_packing_job('22222222-j001-0000-0000-000000000000', 'Customer order cancelled', 'req_phase211_cancel_test_0001'))->>'status'),
+    (SELECT (public.rpc_cancel_packing_job('22222222-a001-0000-0000-000000000000', 'Customer order cancelled', 'req_phase211_cancel_test_0001'))->>'status'),
     'CANCELLED',
     'Job cancelled successfully via rpc_cancel_packing_job'
 );
 
 SELECT is(
-    (SELECT completed_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT completed_quantity FROM public.packing_jobs WHERE id = '22222222-a001-0000-0000-000000000000'),
     530,
     'Completed production permanently preserved at 530 units after cancellation'
 );
 
 SELECT is(
-    (SELECT cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-a001-0000-0000-000000000000'),
     470,
     'Cancelled quantity recorded at 470 units'
 );
@@ -193,14 +197,14 @@ SELECT lives_ok(
         original_planned_quantity, current_revised_quantity,
         completed_quantity, pending_quantity, cancelled_quantity, status
     ) VALUES (
-        '22222222-j002-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-CUSTOM-002',
+        '22222222-a002-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-CUSTOM-002',
         'cccccccc-0001-0000-0000-000000000000', 'dddddddd-0001-0000-0000-000000000000',
         NULL, 200, 200, 0, 200, 0, 'DRAFT'
     );
     INSERT INTO public.packing_job_bom_snapshots (
         id, packing_job_id, source_bom_id, bom_version, is_customized, customization_notes, frozen_by
     ) VALUES (
-        '33333333-s002-0000-0000-000000000000', '22222222-j002-0000-0000-000000000000',
+        '33333333-a002-0000-0000-000000000000', '22222222-a002-0000-0000-000000000000',
         NULL, NULL, true, 'Ad-hoc customized packing specifications', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     );
     $$,
@@ -213,11 +217,12 @@ SELECT throws_ok(
     INSERT INTO public.packing_job_bom_snapshots (
         id, packing_job_id, source_bom_id, bom_version, is_customized, frozen_by
     ) VALUES (
-        '33333333-s003-0000-0000-000000000000', '22222222-j002-0000-0000-000000000000',
+        '33333333-a003-0000-0000-000000000000', '22222222-a002-0000-0000-000000000000',
         NULL, NULL, false, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     )
     $$,
     '23514',
+    NULL,
     'Snapshot with is_customized=false and NULL source_bom_id rejected by check constraint'
 );
 
@@ -235,30 +240,30 @@ VALUES('44444444-0001-0000-0000-000000000000','11111111-b002-0000-0000-000000000
        'eeeeeeee-0002-0000-0000-000000000000',2,(SELECT id FROM public.units WHERE code='PCS'),false,'2 PCS -> 0.010 KG');
 INSERT INTO public.packing_jobs(id,daily_plan_id,job_code,party_id,product_id,master_bom_id,
  original_planned_quantity,current_revised_quantity,completed_quantity,pending_quantity,cancelled_quantity,status)
-VALUES('22222222-j003-0000-0000-000000000000','ffffffff-0001-0000-0000-000000000000','JOB-RELEASE-CNV',
+VALUES('22222222-a003-0000-0000-000000000000','ffffffff-0001-0000-0000-000000000000','JOB-RELEASE-CNV',
  'cccccccc-0001-0000-0000-000000000000','dddddddd-0001-0000-0000-000000000000',
  '11111111-b002-0000-0000-000000000000',100,100,0,100,0,'DRAFT');
 SET LOCAL request.jwt.claim.sub = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 SELECT lives_ok(
- $SELECT public.rpc_release_packing_job('22222222-j003-0000-0000-000000000000','req_phase211_release_bom_conversion_001')$,
+ $$SELECT public.rpc_release_packing_job('22222222-a003-0000-0000-000000000000','req_phase211_release_bom_conversion_001')$$,
  'BOM release freezes current canonical conversion'
 );
 SELECT is(
  (SELECT canonical_qty_per_unit FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
-  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+  WHERE s.packing_job_id='22222222-a003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
  0.010::numeric,'2 PCS freeze as 0.010 KG per finished unit'
 );
 SELECT is(
  (SELECT conversion_rule_id FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
-  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+  WHERE s.packing_job_id='22222222-a003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
  'eeeeeeee-0003-0000-0000-000000000000'::uuid,'Snapshot records authoritative conversion rule'
 );
 SELECT is(
  (SELECT conversion_direction FROM public.packing_job_bom_snapshot_lines l JOIN public.packing_job_bom_snapshots s ON s.id=l.snapshot_id
-  WHERE s.packing_job_id='22222222-j003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
+  WHERE s.packing_job_id='22222222-a003-0000-0000-000000000000' AND l.material_id='eeeeeeee-0002-0000-0000-000000000000'),
  'MULTIPLY'::text,'Snapshot freezes conversion direction'
 );
-SELECT public.rpc_release_packing_job('22222222-j003-0000-0000-000000000000','req_phase211_release_bom_conversion_001');
-SELECT is((SELECT count(*)::integer FROM public.packing_job_bom_snapshots WHERE packing_job_id='22222222-j003-0000-0000-000000000000'),1,'Same-key release retry does not create duplicate snapshots');
+SELECT public.rpc_release_packing_job('22222222-a003-0000-0000-000000000000','req_phase211_release_bom_conversion_001');
+SELECT is((SELECT count(*)::integer FROM public.packing_job_bom_snapshots WHERE packing_job_id='22222222-a003-0000-0000-000000000000'),1,'Same-key release retry does not create duplicate snapshots');
 SELECT * FROM finish();
 ROLLBACK;

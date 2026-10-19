@@ -80,6 +80,7 @@ SET LOCAL request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 SELECT throws_ok(
     $$UPDATE public.profiles SET role = 'ADMIN' WHERE id = '22222222-2222-2222-2222-222222222222'$$,
     '42501',
+    NULL,
     'trg_protect_profile_role blocks unprivileged role elevation'
 );
 
@@ -87,6 +88,7 @@ SELECT throws_ok(
 SELECT throws_ok(
     $$UPDATE public.profiles SET is_active = false WHERE id = '22222222-2222-2222-2222-222222222222'$$,
     '42501',
+    NULL,
     'trg_protect_profile_role blocks unprivileged active status modification'
 );
 
@@ -113,8 +115,9 @@ SELECT is(
 RESET ROLE;
 RESET request.jwt.claim.sub;
 SELECT throws_ok(
-    $SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'STOREKEEPER', true, 'Promoted')$,
+    $$SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'STOREKEEPER', true, 'Promoted')$$,
     '28000',
+    NULL,
     'admin_update_profile_access rejects unauthenticated execution (SQLSTATE 28000)'
 );
 
@@ -122,7 +125,7 @@ SELECT throws_ok(
 SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 SELECT lives_ok(
-    $SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'OPERATOR', false, 'Test deactivation')$,
+    $$SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'OPERATOR', false, 'Test deactivation')$$,
     'Administrator RPC deactivates an operator with an audit reason'
 );
 SET LOCAL request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';

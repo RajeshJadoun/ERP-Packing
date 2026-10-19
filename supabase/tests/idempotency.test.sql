@@ -19,7 +19,7 @@ BEGIN
     INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
         ('99999999-9999-9999-9999-999999999999', 'Idempotency Tester', 'ADMIN', true)
     ON CONFLICT (id) DO NOTHING;
-END $;
+END $$;
 
 SET LOCAL request.jwt.claim.sub = '99999999-9999-9999-9999-999999999999';
 
@@ -33,7 +33,8 @@ SELECT throws_ok(
         'POST:/api/v1/goods-receipts/post', 'hash_test', 'PROCESSING'
     )
     $$,
-    'chk_idempotency_key_format',
+    '23514',
+    NULL,
     'Idempotency key under 16 characters rejected by chk_idempotency_key_format'
 );
 
@@ -47,7 +48,8 @@ SELECT throws_ok(
         'POST:/api/v1/goods-receipts/post', 'hash_test', 'PROCESSING'
     )
     $$,
-    'chk_idempotency_key_format',
+    '23514',
+    NULL,
     'Idempotency key containing spaces rejected by regex check'
 );
 
@@ -76,7 +78,8 @@ SELECT throws_ok(
         'UNAPPROVED_RESOURCE_TYPE'
     )
     $$,
-    'chk_idempotency_keys_resource_type',
+    '23514',
+    NULL,
     'Unapproved resource_type rejected by chk_idempotency_keys_resource_type constraint'
 );
 
@@ -158,6 +161,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Reusing same key with altered payload hash throws conflict (SQLSTATE 23505)'
 );
 
