@@ -66,6 +66,11 @@ BEGIN
     INSERT INTO public.daily_plans (id, plan_number, plan_date, shift_code, created_by)
     VALUES (v_plan_id, 'PLAN-2026-1019-S1', current_date, 'SHIFT_A', v_admin_id);
 
+    -- Separate plan for constraint-negative test: daily_closings are unique per plan.
+    INSERT INTO public.daily_plans (id, plan_number, plan_date, shift_code, created_by)
+    VALUES ('ffffffff-0002-0000-0000-000000000000',
+            'PLAN-2026-1020-S1', current_date + 1, 'SHIFT_A', v_admin_id);
+
     INSERT INTO public.packing_jobs (
         id, daily_plan_id, job_code, party_id, product_id,
         original_planned_quantity, current_revised_quantity,
@@ -187,8 +192,8 @@ SELECT throws_ok(
         total_completed_units, total_pending_units, total_cancelled_units,
         closed_by
     ) VALUES (
-        (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S1'),
-        'SHIFT_A', current_date + 1, 500, 400, 50, 0, -- Next day avoids duplicate closing key; conservation is the intended failure.
+        (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1020-S1'),
+        'SHIFT_A', current_date + 1, 500, 400, 50, 0, -- Unique plan; conservation is the intended failure.
         '00000000-0000-0000-0000-000000000001'::uuid
     )
     $$,
