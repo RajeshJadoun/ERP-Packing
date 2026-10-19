@@ -12,8 +12,9 @@
 6. Multiple purchase-order lines can now contain the same material; GRN lines still allocate to an explicit PO line.
 7. Public/anonymous execution grants are revoked from operational SECURITY DEFINER RPCs. Private helpers remain inaccessible to API roles.
 8. BOM release freezes canonical quantity and conversion provenance for each BOM line.
-9. Profile-role protection permits first-admin bootstrap only from a direct database-administrator session.
-10. Regression pgTAP coverage was expanded for request hashing, ACLs, PO unit conversion and BOM conversion snapshots.
+9. Shift closings enforce non-negative quantities and planned = completed + pending + cancelled at the database constraint level.
+10. Profile-role protection permits first-admin bootstrap only from a direct database-administrator session.
+11. Regression pgTAP coverage was expanded for request hashing, ACLs, PO unit conversion and BOM conversion snapshots.
 
 ## Verification boundary
 

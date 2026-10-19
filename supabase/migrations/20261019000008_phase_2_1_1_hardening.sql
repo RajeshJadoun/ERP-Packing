@@ -1,5 +1,16 @@
 -- Migration 000008: Phase 2.1.1 final security and transactional hardening.
 ALTER TABLE public.purchase_order_lines DROP CONSTRAINT IF EXISTS uq_po_lines_material;
+
+-- Enforce end-of-shift quantity conservation at the database boundary.
+ALTER TABLE public.daily_closings
+    ADD CONSTRAINT chk_daily_closing_conservation
+    CHECK (
+        total_planned_units >= 0
+        AND total_completed_units >= 0
+        AND total_pending_units >= 0
+        AND total_cancelled_units >= 0
+        AND total_planned_units = total_completed_units + total_pending_units + total_cancelled_units
+    );
 CREATE OR REPLACE FUNCTION public.fn_hash_request(p_scope text,p_payload jsonb)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT SET search_path=''
 AS $$
