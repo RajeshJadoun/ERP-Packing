@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 import httpx
 import jwt
-from jwt.exceptions import PyJWKClientConnectionError
 from flask import current_app, g, request
+from jwt.exceptions import PyJWKClientConnectionError
 
 from .errors import ApiError
 
