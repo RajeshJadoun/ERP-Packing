@@ -15,6 +15,7 @@ from .config import Settings
 from .errors import register_error_handlers
 from .idempotency import build_idempotency_context
 from .request_context import install_request_context
+from .routes.purchasing import purchasing_bp
 
 
 def _secret_value(value) -> str | None:
@@ -128,6 +129,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         }
         return jsonify(payload), (200 if healthy else 503)
 
+    api.register_blueprint(purchasing_bp)
     app.register_blueprint(api)
     allowed_origins = [
         origin.strip()

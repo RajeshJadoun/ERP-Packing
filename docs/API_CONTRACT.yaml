@@ -1685,6 +1685,8 @@ components:
         stockTransactionId:
           type: string
           format: uuid
+          nullable: true
+          description: Null when the entire line is rejected and no positive-quantity stock movement is posted.
 
     StockBalanceItem:
       type: object
