@@ -6,7 +6,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(25);
+SELECT plan(30);
 
 SELECT has_column(
     'public', 'stock_transactions', 'measurement_evidence',
@@ -357,6 +357,66 @@ SELECT throws_ok(
     '42501',
     NULL,
     'Storekeeper cannot bypass the administrator-only scrap disposal approval'
+);
+
+DO $
+BEGIN
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
+    UPDATE public.profiles
+    SET role = 'ADMIN', is_active = true
+    WHERE id = 'f5000000-0000-4000-8000-000000000001';
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
+END $;
+
+SELECT is(
+    (public.rpc_post_stock_adjustment(
+        'ADJ-PHASE5-RPC-01',
+        'f5000000-0000-4000-8000-000000000010',
+        'f5000000-0000-4000-8000-000000000021',
+        90,
+        'Phase 5 audited cycle count',
+        'req_phase5_adjustment_000001',
+        'phase5-adjustment-hash-1'
+    )->>'differenceQuantity')::numeric,
+    5::numeric,
+    'Cycle-count RPC posts the signed physical variance'
+);
+
+SELECT is(
+    (SELECT measurement_evidence FROM public.stock_transactions
+     WHERE idempotency_key = 'req_phase5_adjustment_000001'),
+    'Phase 5 audited cycle count',
+    'Cycle-count reason is preserved as immutable measurement evidence'
+);
+
+SELECT is(
+    (SELECT on_hand_quantity FROM public.material_location_balances
+     WHERE material_id = 'f5000000-0000-4000-8000-000000000010'
+       AND location_id = 'f5000000-0000-4000-8000-000000000021'),
+    90::numeric,
+    'Cycle-count adjustment reconciles the leaf projection to the counted quantity'
+);
+
+SELECT is(
+    public.rpc_post_stock_adjustment(
+        'ADJ-PHASE5-RPC-01',
+        'f5000000-0000-4000-8000-000000000010',
+        'f5000000-0000-4000-8000-000000000021',
+        90,
+        'Phase 5 audited cycle count',
+        'req_phase5_adjustment_000001',
+        'phase5-adjustment-hash-1'
+    )->>'stockAdjustmentId',
+    (SELECT id::text FROM public.stock_adjustments
+     WHERE adjustment_number = 'ADJ-PHASE5-RPC-01'),
+    'Matching adjustment retries replay the original adjustment record'
+);
+
+SELECT is(
+    (SELECT count(*)::integer FROM public.stock_transactions
+     WHERE idempotency_key = 'req_phase5_adjustment_000001'),
+    1,
+    'Cycle-count retry does not duplicate its ledger transaction'
 );
 
 SELECT ok(
