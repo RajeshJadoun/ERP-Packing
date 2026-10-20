@@ -276,10 +276,8 @@ BEGIN
          FROM public.stock_transactions
          WHERE goods_receipt_line_id = v_grn_line
          LIMIT 1),
-        (SELECT id FROM public.material_conversions
-         WHERE material_id = v_material AND from_unit_id = v_g AND to_unit_id = v_kg
-         LIMIT 1),
-        'Stock ledger stores the authoritative accepted-to-canonical conversion rule'
+        v_rule,
+        'Stock ledger stores the authoritative inverse conversion rule provenance'
     );
 END $$;
 
