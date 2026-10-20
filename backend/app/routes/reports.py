@@ -13,7 +13,6 @@ from ..services.reporting_service import list_report_rows
 
 reports_bp = Blueprint("reports", __name__)
 
-_DATE_FIELDS = ("fromDate", "toDate")
 _MAX_LIMIT = 1000
 _MAX_OFFSET = 100_000
 
@@ -37,47 +36,6 @@ def _uuid_filter(argument: str, column: str, filters: dict[str, str]) -> None:
     except ValueError as exc:
         raise ApiError(400, "BAD_REQUEST", f"{argument} must be a valid UUID.") from exc
     filters[column] = f"eq.{normalized}"
-
-
-def _date_filters(date_column: str | None, filters: dict[str, str]) -> None:
-    start = _date_value("fromDate")
-    end = _date_value("toDate")
-    if start and end and start > end:
-        raise ApiError(400, "BAD_REQUEST", "fromDate cannot be later than toDate.")
-    if date_column and start:
-        filters[date_column] = f"gte.{start.isoformat()}"
-    if date_column and end:
-        filters[f"{date_column}"] = (
-            f"gte.{start.isoformat()}" if start and start == end else filters.get(date_column, "")
-        )
-        if start and start == end:
-            filters[date_column] = f"eq.{start.isoformat()}"
-        else:
-            filters.pop(date_column, None) if start and end else None
-            if start:
-                filters[f"{date_column}"] = f"gte.{start.isoformat()}"
-            if end:
-                filters[f"{date_column}"] = f"lte.{end.isoformat()}"
-    # PostgREST accepts only one filter per column. Use the explicit range
-    # syntax for inclusive boundaries when both dates are supplied.
-    if date_column and start and end and start != end:
-        filters[f"{date_column}"] = f"gte.{start.isoformat()}"
-        filters[f"{date_column}__upper"] = f"lte.{end.isoformat()}"
-
-
-def _range_filters(date_column: str | None, filters: dict[str, str]) -> None:
-    start = _date_value("fromDate")
-    end = _date_value("toDate")
-    if start and end and start > end:
-        raise ApiError(400, "BAD_REQUEST", "fromDate cannot be later than toDate.")
-    if date_column:
-        if start and end and start == end:
-            filters[date_column] = f"eq.{start.isoformat()}"
-        else:
-            if start:
-                filters[date_column] = f"gte.{start.isoformat()}"
-            if end:
-                filters[f"{date_column}__lte"] = f"lte.{end.isoformat()}"
 
 
 def _pagination() -> tuple[int, int]:
