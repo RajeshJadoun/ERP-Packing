@@ -7,7 +7,7 @@ info:
     difference between estimated theoretical backflush and verified physical usage. All state-changing
     POST commands require Idempotency-Key; Flask owns multi-row transactions while PostgREST handles
     caller-scoped reads and allow-listed master CRUD.
-  version: 1.12.0
+  version: 1.13.0
 servers:
   - url: http://localhost:5000/api/v1
     description: Local Flask Development Server
@@ -42,6 +42,144 @@ paths:
                     type: string
                     format: date-time
 
+  /reports/stock:
+    get:
+      operationId: getStockReport
+      summary: Read current inventory by material and leaf location
+      parameters:
+        - in: query
+          name: materialId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+      responses:
+        '200':
+          description: Caller-scoped current stock positions, segregated by usable, worker custody and quarantine segments
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+  /reports/worker-custody:
+    get:
+      operationId: getWorkerCustodyReport
+      summary: Read outstanding material held at worker custody locations
+      parameters:
+        - in: query
+          name: workerId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: materialId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Caller-scoped worker custody balances
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+  /reports/consumption-variance:
+    get:
+      operationId: getConsumptionVarianceReport
+      summary: Read theoretical, ledger and physically confirmed consumption
+      parameters:
+        - in: query
+          name: fromDate
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          schema: { type: string, format: date }
+        - in: query
+          name: shiftCode
+          schema: { type: string, maxLength: 30 }
+        - in: query
+          name: workerId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: materialId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Consumption comparison preserving unverified physical counts as null
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+  /reports/production-shifts:
+    get:
+      operationId: getProductionShiftReport
+      summary: Read planned, authorized, completed, pending and cancelled units by plan and shift
+      parameters:
+        - in: query
+          name: fromDate
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          schema: { type: string, format: date }
+        - in: query
+          name: shiftCode
+          schema: { type: string, maxLength: 30 }
+      responses:
+        '200':
+          description: Production rollups per daily plan and shift
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+  /reports/worker-output:
+    get:
+      operationId: getWorkerProductionOutputReport
+      summary: Read completed units and completion batches by worker and shift
+      parameters:
+        - in: query
+          name: fromDate
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          schema: { type: string, format: date }
+        - in: query
+          name: shiftCode
+          schema: { type: string, maxLength: 30 }
+        - in: query
+          name: workerId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Worker output per daily plan and shift
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+  /reports/vendor-purchase-history:
+    get:
+      operationId: getVendorPurchaseHistoryReport
+      summary: Read vendor receipts, rejection rates and lead times
+      parameters:
+        - in: query
+          name: fromDate
+          schema: { type: string, format: date }
+        - in: query
+          name: toDate
+          schema: { type: string, format: date }
+        - in: query
+          name: vendorId
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Supplier receipt history with line rejection and delivery timing metrics
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
   /admin/users/{targetId}/access:
     post:
       operationId: updateUserProfileAccess
