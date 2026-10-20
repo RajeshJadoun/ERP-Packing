@@ -88,7 +88,7 @@ describe("post-completion physical consumption verification", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const quantities = await screen.findAllByLabelText("Physically confirmed quantity");
+    const quantities = await screen.findAllByLabelText(/Physically confirmed quantity/i);
     await user.type(quantities[0], "127");
     await user.type(quantities[1], "49.5");
 
