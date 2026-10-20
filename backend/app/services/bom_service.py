@@ -1,6 +1,6 @@
 """Application services for BOM versioning; writes stay inside PostgreSQL RPCs."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from decimal import Decimal
 from typing import Any
