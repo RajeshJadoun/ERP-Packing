@@ -256,4 +256,292 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByText("UNVERIFIED")).toBeInTheDocument();
     expect(body).not.toHaveProperty("varianceQuantity", 0);
   });
+  it("posts a draft goods receipt through the authoritative API", async () => {
+    const user = userEvent.setup();
+    const draftGrn: MockRow = {
+      id: "grn-1", grn_number: "GRN-TEST-01", vendor_id: vendorId, po_id: null,
+      invoice_number: "INV-01", invoice_date: "2026-10-20", received_date: "2026-10-20",
+      destination_location_id: shelfId, status: "DRAFT", created_at: "2026-10-20T00:00:00Z"
+    };
+    const db = configureDb({ ...purchasingSeed, goods_receipts: [draftGrn] });
+    let body: Record<string, unknown> | undefined;
+    server.use(http.post(`${API_BASE_URL}/goods-receipts/post`, async ({ request }) => {
+      body = await request.json() as Record<string, unknown>;
+      const saved = db.tables.goods_receipts?.find((row) => row.id === "grn-1");
+      if (saved) saved.status = "POSTED";
+      return HttpResponse.json({ success: true, goodsReceiptId: "grn-1", status: "POSTED", postedAt: "2026-10-20T10:00:00Z", lines: [] });
+    }));
+
+    render(<MemoryRouter><PurchasingPage role="STOREKEEPER" /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: /Inward GRNs/i }));
+    await user.click(await screen.findByRole("button", { name: /Post GRN/i }));
+
+    expect(await screen.findByText(/grn-1 posted\. Canonical quantities and ledger transactions were confirmed/i)).toBeInTheDocument();
+    expect(body).toEqual({ goodsReceiptId: "grn-1" });
+    expect(db.operations.some((op) => op.table === "stock_transactions" && op.operation !== "select")).toBe(false);
+  });
+
+  it("issues material to worker custody and returns unused material with separate ledger API operations", async () => {
+    const user = userEvent.setup();
+    const custodyLocationId = "custody-location-1";
+    const stockShelfId = "stock-shelf-1";
+    const custodyRows: MockRow[] = [];
+    configureDb({
+      workers: [{ id: workerId, worker_code: "OP-01", name: "Operator One", assigned_location_id: custodyLocationId, is_active: true }],
+      materials: [{ id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true }],
+      locations: [
+        { id: stockShelfId, location_code: "S-01", name: "Store shelf", location_type: "STORE_SHELF", is_leaf: true, is_active: true },
+        { id: custodyLocationId, location_code: "WC-01", name: "Operator custody", location_type: "WORKER_CUSTODY", is_leaf: true, is_active: true },
+        { id: "quarantine-1", location_code: "Q-01", name: "Quarantine", location_type: "DAMAGE_QUARANTINE", is_leaf: true, is_active: true }
+      ],
+      packing_jobs: [{ id: jobId, job_code: "JOB-001", status: "RELEASED", assigned_worker_id: workerId, pending_quantity: 100, current_revised_quantity: 100 }]
+    });
+    const bodies: Array<{ path: string; body: Record<string, unknown> }> = [];
+    server.use(
+      http.get(`${API_BASE_URL}/stock/worker-custody`, () => HttpResponse.json(custodyRows)),
+      http.post(`${API_BASE_URL}/stock/issue-to-worker`, async ({ request }) => {
+        const body = await request.json() as Record<string, unknown>;
+        bodies.push({ path: "/stock/issue-to-worker", body });
+        custodyRows.splice(0, custodyRows.length, {
+          workerId, workerName: "Operator One", workerCode: "OP-01", workerIsActive: true,
+          materialId, materialName: "Poly bag", materialCode: "MAT-001",
+          onHandQuantity: 10, availableQuantity: 10, canonicalUnitCode: "PCS"
+        });
+        return HttpResponse.json({ success: true, canonicalQuantity: 10, stockTransactionId: "transaction-issue-1" });
+      }),
+      http.post(`${API_BASE_URL}/stock/return-from-worker`, async ({ request }) => {
+        const body = await request.json() as Record<string, unknown>;
+        bodies.push({ path: "/stock/return-from-worker", body });
+        custodyRows[0].onHandQuantity = 6;
+        return HttpResponse.json({ success: true, canonicalQuantity: 4, stockTransactionId: "transaction-return-1" });
+      })
+    );
+
+    render(<MemoryRouter><CustodyPage role="STOREKEEPER" /></MemoryRouter>);
+    await user.selectOptions(await screen.findByLabelText(/Worker/), workerId);
+    await user.selectOptions(screen.getByLabelText(/Packing job/), jobId);
+    await user.selectOptions(screen.getByLabelText(/Material/), materialId);
+    await user.selectOptions(screen.getByLabelText(/Source shelf/), stockShelfId);
+    await user.clear(screen.getByLabelText(/Quantity/));
+    await user.type(screen.getByLabelText(/Quantity/), "10");
+    await user.type(screen.getByLabelText(/Measurement evidence/), "Count sheet 001");
+    await user.click(screen.getByRole("button", { name: "Confirm material issue" }));
+    expect(await screen.findByText(/Issued 10 units to Operator One/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Return from worker" }));
+    await user.selectOptions(screen.getByLabelText(/Return destination/), stockShelfId);
+    await user.clear(screen.getByLabelText(/Quantity/));
+    await user.type(screen.getByLabelText(/Quantity/), "4");
+    await user.type(screen.getByLabelText(/Measurement evidence/), "Return count 002");
+    await user.click(screen.getByRole("button", { name: "Confirm material return" }));
+
+    expect(await screen.findByText(/Return posted\. Transaction/i)).toBeInTheDocument();
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toMatchObject({
+      path: "/stock/issue-to-worker",
+      body: { workerId, jobId, materialId, sourceLocationId: stockShelfId, destinationLocationId: custodyLocationId, quantity: 10, unitId }
+    });
+    expect(bodies[1]).toMatchObject({
+      path: "/stock/return-from-worker",
+      body: { workerId, jobId, materialId, sourceLocationId: custodyLocationId, destinationLocationId: stockShelfId, quantity: 4, unitId }
+    });
+  });
+
+  it("keeps quarantine moves and scrap disposal as distinct authorized stock transactions", async () => {
+    const user = userEvent.setup();
+    const stockShelfId = "stock-shelf-1";
+    const quarantineId = "quarantine-1";
+    configureDb({
+      materials: [{ id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true }],
+      locations: [
+        { id: stockShelfId, location_code: "S-01", name: "Store shelf", location_type: "STORE_SHELF", is_leaf: true, is_active: true },
+        { id: quarantineId, location_code: "Q-01", name: "Damage quarantine", location_type: "DAMAGE_QUARANTINE", is_leaf: true, is_active: true }
+      ]
+    });
+    const bodies: Array<{ path: string; body: Record<string, unknown> }> = [];
+    server.use(
+      http.get(`${API_BASE_URL}/stock/balances`, () => HttpResponse.json([{
+        id: "balance-q", materialId, materialCode: "MAT-001", materialName: "Poly bag",
+        locationId: quarantineId, locationCode: "Q-01", locationType: "DAMAGE_QUARANTINE",
+        onHandQuantity: 10, reservedQuantity: 0, availableQuantity: 0, canonicalUnitCode: "PCS"
+      }])),
+      http.post(`${API_BASE_URL}/stock/damage-quarantine`, async ({ request }) => {
+        bodies.push({ path: "/stock/damage-quarantine", body: await request.json() as Record<string, unknown> });
+        return HttpResponse.json({ success: true, stockTransactionId: "tx-quarantine" });
+      }),
+      http.post(`${API_BASE_URL}/stock/scrap-disposal`, async ({ request }) => {
+        bodies.push({ path: "/stock/scrap-disposal", body: await request.json() as Record<string, unknown> });
+        return HttpResponse.json({ success: true, stockTransactionId: "tx-scrap" });
+      })
+    );
+
+    render(<MemoryRouter><QuarantinePage role="ADMIN" /></MemoryRouter>);
+    await user.selectOptions(await screen.findByLabelText(/^Material/), materialId);
+    await user.selectOptions(screen.getByLabelText(/Source location/), stockShelfId);
+    await user.selectOptions(screen.getByLabelText(/Destination quarantine bay/), quarantineId);
+    await user.clear(screen.getByLabelText(/Quantity/));
+    await user.type(screen.getByLabelText(/Quantity/), "10");
+    await user.type(screen.getByLabelText(/Quarantine reason/), "Moisture damage on receipt");
+    await user.click(screen.getByRole("button", { name: "Confirm quarantine" }));
+    expect(await screen.findByText(/Total physical stock is unchanged/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dispose of scrap" }));
+    await user.selectOptions(screen.getByLabelText(/Quarantine source bay/), quarantineId);
+    await user.clear(screen.getByLabelText(/Quantity/));
+    await user.type(screen.getByLabelText(/Quantity/), "2");
+    await user.clear(screen.getByLabelText(/Disposal reason/));
+    await user.type(screen.getByLabelText(/Disposal reason/), "QC condemned material");
+    await user.click(screen.getByRole("button", { name: "Confirm scrap disposal" }));
+    expect(await screen.findByText(/Scrap disposal posted to the immutable ledger/i)).toBeInTheDocument();
+
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0]).toMatchObject({
+      path: "/stock/damage-quarantine",
+      body: { materialId, quantity: 10, unitId, sourceLocationId: stockShelfId, destinationLocationId: quarantineId, quarantineReason: "Moisture damage on receipt" }
+    });
+    expect(bodies[1]).toMatchObject({
+      path: "/stock/scrap-disposal",
+      body: { materialId, quantity: 2, unitId, sourceLocationId: quarantineId, disposalReason: "QC condemned material" }
+    });
+  });
+
+  it("submits custom daily-plan recipes as material lines without fabricating a master BOM", async () => {
+    const user = userEvent.setup();
+    const secondMaterialId = "material-2";
+    configureDb({
+      daily_plans: [],
+      parties: [{ id: partyId, code: "PTY-1", name: "Customer One", is_active: true }],
+      products: [{ id: productId, sku_code: "SKU-1", name: "Product One", default_party_id: partyId, is_active: true }],
+      boms: [],
+      materials: [
+        { id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true },
+        { id: secondMaterialId, material_code: "MAT-002", name: "Label", canonical_unit_id: unitId, is_active: true }
+      ],
+      units: [{ id: unitId, code: "PCS", name: "Pieces", dimension: "COUNT" }]
+    });
+    let body: Record<string, unknown> | undefined;
+    server.use(http.post(`${API_BASE_URL}/daily-plans`, async ({ request }) => {
+      body = await request.json() as Record<string, unknown>;
+      return HttpResponse.json({ success: true, id: "plan-custom", planNumber: "PLAN-CUSTOM-01", status: "DRAFT" }, { status: 201 });
+    }));
+
+    render(<MemoryRouter><PlanningPage role="PLANNER" shift="SHIFT_1" /></MemoryRouter>);
+    await screen.findByText("No daily plans");
+    await user.click(screen.getByRole("button", { name: /Create daily plan/i }));
+    await user.selectOptions(screen.getByLabelText(/Recipe type/), "custom");
+    await user.selectOptions(screen.getByLabelText(/Customer party/), partyId);
+    await user.selectOptions(screen.getByLabelText(/Product/), productId);
+    await user.selectOptions(screen.getByLabelText(/Custom material/), materialId);
+    await user.click(screen.getByRole("button", { name: /Add custom material/i }));
+    await user.selectOptions(screen.getAllByLabelText(/Custom material/)[1], secondMaterialId);
+    await user.clear(screen.getAllByLabelText(/Qty per finished unit/)[1]);
+    await user.type(screen.getAllByLabelText(/Qty per finished unit/)[1], "0.5");
+    await user.click(screen.getByRole("button", { name: "Create draft plan" }));
+
+    expect(await screen.findByText(/Daily plan PLAN-CUSTOM-01 created in draft status/i)).toBeInTheDocument();
+    expect(body).toMatchObject({
+      masterDerivedJobs: [],
+      customJobs: [{
+        partyId, productId, plannedQuantity: 100,
+        customBomLines: [
+          { materialId, quantityPerUnit: 1, unitId, isOptional: false, applicationNotes: null },
+          { materialId: secondMaterialId, quantityPerUnit: 0.5, unitId, isOptional: false, applicationNotes: null }
+        ]
+      }]
+    });
+  });
+
+  it("activates a BOM version through the backend and never mutates BOM tables directly", async () => {
+    const user = userEvent.setup();
+    const db = configureDb({
+      boms: [{
+        id: "bom-v1", bom_code: "BOM-1", product_id: productId, party_id: partyId,
+        packing_variant_name: "Standard", version_number: 1, status: "DRAFT",
+        notes: null, created_at: "2026-10-20T00:00:00Z", bom_lines: []
+      }],
+      products: [{ id: productId, sku_code: "SKU-1", name: "Product One", is_active: true }],
+      parties: [{ id: partyId, code: "PTY-1", name: "Customer One", is_active: true }],
+      materials: [{ id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true }],
+      units: [{ id: unitId, code: "PCS", name: "Pieces", dimension: "COUNT" }]
+    });
+    let body: unknown;
+    server.use(http.post(`${API_BASE_URL}/boms/bom-v1/activate`, async ({ request }) => {
+      body = await request.json();
+      const row = db.tables.boms?.find((bom) => bom.id === "bom-v1");
+      if (row) row.status = "ACTIVE";
+      return HttpResponse.json({ success: true, id: "bom-v1", status: "ACTIVE" });
+    }));
+
+    render(<MemoryRouter><BomStudioPage role="PLANNER" /></MemoryRouter>);
+    expect(await screen.findByText("BOM-1")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Activate/ }));
+    expect(await screen.findByText(/BOM-1 v1 is now active/i)).toBeInTheDocument();
+    expect(body).toEqual({});
+    expect(db.operations.some((op) => ["boms", "bom_lines"].includes(op.table) && op.operation !== "select")).toBe(false);
+  });
+
+  it("validates and closes a released shift through the audited closing API", async () => {
+    const user = userEvent.setup();
+    const dailyPlanId = "plan-1";
+    configureDb({
+      daily_plans: [{
+        id: dailyPlanId, plan_number: "PLAN-001", plan_date: "2026-10-20",
+        shift_code: "SHIFT_1", status: "RELEASED", packing_jobs: [{
+          id: jobId, job_code: "JOB-001", status: "COMPLETED",
+          current_revised_quantity: 100, completed_quantity: 100, pending_quantity: 0, cancelled_quantity: 0
+        }]
+      }],
+      daily_closings: []
+    });
+    const detail = {
+      id: dailyPlanId, planNumber: "PLAN-001", planDate: "2026-10-20", shiftCode: "SHIFT_1",
+      jobs: [{
+        id: jobId, jobCode: "JOB-001", status: "COMPLETED",
+        quantityStatus: { originalPlannedQuantity: 100, currentRevisedQuantity: 100, completedQuantity: 100, pendingQuantity: 0, cancelledQuantity: 0 }
+      }]
+    };
+    let body: Record<string, unknown> | undefined;
+    server.use(
+      http.get(`${API_BASE_URL}/daily-plans/${dailyPlanId}`, () => HttpResponse.json(detail)),
+      http.post(`${API_BASE_URL}/closings`, async ({ request }) => {
+        body = await request.json() as Record<string, unknown>;
+        return HttpResponse.json({
+          success: true, id: "closing-1", dailyPlanId, shiftCode: "SHIFT_1", closingDate: "2026-10-20",
+          total_planned_units: 100, total_completed_units: 100, total_pending_units: 0,
+          total_cancelled_units: 0, unresolvedDiscrepanciesCount: 0, discrepancyDetails: [],
+          closedAt: "2026-10-20T12:00:00Z", isReopened: false
+        });
+      })
+    );
+
+    render(<MemoryRouter><ClosingPage role="STOREKEEPER" /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: /Reconcile/ }));
+    expect(await screen.findByText("PLAN-001")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Validate & close shift" }));
+
+    expect(await screen.findByText(/Shift closing saved\. 0 discrepancy item\(s\) are recorded/i)).toBeInTheDocument();
+    expect(body).toMatchObject({
+      dailyPlanId, shiftCode: "SHIFT_1", allowDiscrepancyOverride: false,
+      supervisorOverrideReason: null, pendingDispositions: []
+    });
+  });
+
+  it("disables worker issue and return controls for a Viewer role", async () => {
+    configureDb({
+      workers: [{ id: workerId, worker_code: "OP-01", name: "Operator One", assigned_location_id: "custody-location-1", is_active: true }],
+      materials: [{ id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true }],
+      locations: [
+        { id: "shelf-1", location_code: "S-01", name: "Store shelf", location_type: "STORE_SHELF", is_leaf: true, is_active: true },
+        { id: "custody-location-1", location_code: "WC-01", name: "Worker custody", location_type: "WORKER_CUSTODY", is_leaf: true, is_active: true }
+      ],
+      packing_jobs: [{ id: jobId, job_code: "JOB-001", status: "RELEASED", assigned_worker_id: workerId, pending_quantity: 10 }]
+    });
+    server.use(http.get(`${API_BASE_URL}/stock/worker-custody`, () => HttpResponse.json([])));
+
+    render(<MemoryRouter><CustodyPage role="VIEWER" /></MemoryRouter>);
+    expect(await screen.findByRole("button", { name: "Confirm material issue" })).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Return from worker" }));
+    expect(screen.getByRole("button", { name: "Confirm material return" })).toBeDisabled();
+  });
+
 });
