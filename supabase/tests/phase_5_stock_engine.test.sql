@@ -6,7 +6,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(26);
+SELECT plan(25);
 
 SELECT has_column(
     'public', 'stock_transactions', 'measurement_evidence',
