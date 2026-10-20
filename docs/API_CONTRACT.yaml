@@ -4,7 +4,7 @@ info:
   description: |
     Production-grade API specification for critical transactional business operations,
     stock invariant enforcement, BOM versioning, worker custody tracking, and daily closing.
-    Updated through Phase 1.10 with exact protected operation counts (33 protected, 1 unauthenticated),
+    Updated through Phase 5 with exact operation counts (34 total: 33 protected, 1 unauthenticated),
     camelCase resourceReference in HTTP 410 expired responses (resourceType, resourceId, operationCompletedAt),
     removal of invented surrogate idempotencyKeyId from response schemas, complete 10/10 resource recovery
     mapping, 100% mandatory Idempotency-Key enforcement on all 20 POST commands, and strict separation between
