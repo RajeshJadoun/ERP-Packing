@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 import httpx
 import jwt
+from jwt.exceptions import PyJWKClientConnectionError
 from flask import current_app, g, request
 
 from .errors import ApiError
@@ -77,6 +78,9 @@ class JWTVerifier:
             return claims
         except ApiError:
             raise
+        except PyJWKClientConnectionError as exc:
+            current_app.logger.warning("Supabase JWKS endpoint is unavailable", exc_info=True)
+            raise ApiError(503, "AUTH_PROVIDER_UNAVAILABLE", "Authentication verification is temporarily unavailable.") from exc
         except jwt.ExpiredSignatureError as exc:
             raise ApiError(401, "UNAUTHORIZED", "The Bearer token has expired.") from exc
         except (jwt.PyJWTError, ValueError, TypeError) as exc:
