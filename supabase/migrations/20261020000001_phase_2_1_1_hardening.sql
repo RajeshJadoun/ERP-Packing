@@ -235,7 +235,7 @@ DECLARE
     v_norm_rejected numeric;
     v_po_credit numeric;
     v_response jsonb;
-    v_now timestamptz;
+    v_po_line record;
 BEGIN
     v_actor_id := auth.uid();
     v_role := public.get_current_user_role();
@@ -454,8 +454,7 @@ BEGIN
             rejection_conversion_rule_id = (v_reject_conversion->>'rule_id')::uuid,
             rejection_conversion_factor_used = (v_reject_conversion->>'factor')::numeric,
             rejection_conversion_direction = v_reject_conversion->>'direction',
-            rejection_conversion_type_used = v_reject_conversion->>'conversion_type',
-            is_estimated_conversion = (v_accept_conversion->>'is_estimated')::boolean
+            rejection_conversion_type_used = v_reject_conversion->>'conversion_type'
         WHERE id = v_line.id;
 
         IF v_calc_accepted > 0 AND v_calc_canonical > 0 THEN
