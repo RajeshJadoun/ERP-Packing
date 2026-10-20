@@ -60,8 +60,8 @@ def _database_status(app: Flask) -> str:
     if supabase_url and anon_key:
         try:
             response = httpx.get(
-                f"{supabase_url.rstrip('/')}/rest/v1/",
-                headers={"apikey": anon_key},
+                f"{supabase_url.rstrip('/')}/rest/v1/material_categories?select=id&limit=1",
+                headers={"apikey": anon_key, "Authorization": f"Bearer {anon_key}"},
                 timeout=app.config["HEALTHCHECK_TIMEOUT_SECONDS"],
             )
             response.raise_for_status()
