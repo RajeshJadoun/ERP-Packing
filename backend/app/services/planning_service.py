@@ -1,6 +1,6 @@
 """Application services for daily plans, snapshots and job quantity lifecycle."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 from typing import Any
 from uuid import UUID
