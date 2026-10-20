@@ -258,6 +258,17 @@ SELECT is(
     'Total physical inventory permanently reduced to 980.0 KG by scrap disposal'
 );
 
+-- The stock transaction's foreign key requires a durable idempotency header.
+INSERT INTO public.idempotency_keys (
+    idempotency_key, owner_id, operation_scope, request_hash, status
+) VALUES (
+    'test_key_0000000000000009',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'POST:/api/v1/stock/transfer',
+    'hash_stock_overdraw_001',
+    'PROCESSING'
+) ON CONFLICT (idempotency_key) DO NOTHING;
+
 -- 10. Test: Non-Negative Stock Check (Attempt to transfer 800 KG from shelf with only 700 KG)
 SELECT throws_ok(
     $$
