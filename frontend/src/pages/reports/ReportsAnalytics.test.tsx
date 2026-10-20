@@ -82,4 +82,84 @@ describe("Phase 9 operations analytics page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
     expect(mocks.downloadCsv).toHaveBeenCalledWith("packwise-stock-report.csv", [second]);
   });
+
+  it("renders unverified physical consumption as Not verified and never falsely 0", () => {
+    const consumptionRow = {
+      consumption_id: "c-1",
+      completion_number: "CMP-001",
+      shift_code: "SHIFT_1",
+      worker_name: "Ramesh Kumar",
+      material_name: "Poly Bag 25kg",
+      canonical_unit_code: "KG",
+      theoretical_quantity: "530",
+      physically_confirmed_quantity: null,
+      variance_quantity: null,
+      variance_status: "UNVERIFIED"
+    };
+    mocks.reportData = { ...mocks.reportData, consumption: [consumptionRow] };
+    render(<ReportsAnalyticsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Consumption variance/ }));
+
+    expect(screen.getByText("CMP-001")).toBeInTheDocument();
+    expect(screen.getByText("Not verified")).toBeInTheDocument();
+    expect(screen.queryByText("0.000 KG")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(mocks.downloadCsv).toHaveBeenCalledWith("packwise-consumption-report.csv", [consumptionRow]);
+  });
+
+  it("renders shift production summaries and switches to worker custody tab", () => {
+    const shiftRow = {
+      plan_id: "plan-1",
+      plan_number: "PLAN-2026-10-20-01",
+      plan_date: "2026-10-20",
+      shift_code: "SHIFT_1",
+      job_count: 2,
+      authorized_units: 1000,
+      completed_units: 530,
+      pending_units: 470,
+      cancelled_units: 0,
+      completion_count: 1
+    };
+    const custodyRow = {
+      worker_id: "w-1",
+      worker_name: "Sita Sharma",
+      worker_code: "WRK-001",
+      material_id: "mat-1",
+      material_code: "MAT-001",
+      material_name: "Box Liner",
+      location_code: "LOC-CUST-1",
+      on_hand_quantity: "15",
+      canonical_unit_code: "PCS",
+      worker_is_active: true
+    };
+    mocks.reportData = { ...mocks.reportData, production: [shiftRow], custody: [custodyRow] };
+    render(<ReportsAnalyticsPage />);
+
+    // Production tab
+    fireEvent.click(screen.getByRole("button", { name: /Production by shift/ }));
+    expect(screen.getByText("PLAN-2026-10-20-01")).toBeInTheDocument();
+
+    // Custody tab
+    fireEvent.click(screen.getByRole("button", { name: /Worker custody/ }));
+    expect(screen.getByText("Sita Sharma")).toBeInTheDocument();
+    expect(screen.getByText("15 PCS")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(mocks.downloadCsv).toHaveBeenCalledWith("packwise-custody-report.csv", [custodyRow]);
+  });
+
+  it("shows validation error when from date is after to date", () => {
+    render(<ReportsAnalyticsPage />);
+
+    const fromDateInput = screen.getByLabelText("From date");
+    const toDateInput = screen.getByLabelText("To date");
+
+    fireEvent.change(fromDateInput, { target: { value: "2026-10-25" } });
+    fireEvent.change(toDateInput, { target: { value: "2026-10-20" } });
+
+    expect(screen.getByText("From date cannot be after the to date.")).toBeInTheDocument();
+  });
 });
+

@@ -50,6 +50,8 @@ _READ_TABLES = MASTER_TABLES | frozenset(
         "production_completions",
         "material_consumption_records",
         "daily_closings",
+        "profiles",
+        "audit_logs",
         "vw_stock_by_location",
         "vw_worker_custody_balance",
         "vw_material_consumption_variance",

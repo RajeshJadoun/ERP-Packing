@@ -103,3 +103,40 @@ def test_report_rejects_out_of_bounds_pagination_and_unauthenticated_access(clie
 
     assert large_limit.status_code == 400
     assert missing_auth.status_code == 401
+
+
+def test_report_rejects_unsupported_parameters_and_ignored_date_filters(client, token_factory):
+    # fromDate/toDate are not supported on current stock positions; passing them must fail fast
+    date_on_stock = client.get(
+        "/api/v1/reports/stock?fromDate=2026-10-01",
+        headers=_auth(token_factory()),
+    )
+    assert date_on_stock.status_code == 400
+    assert date_on_stock.get_json()["error"]["code"] == "BAD_REQUEST"
+    assert "Unsupported parameter 'fromDate'" in date_on_stock.get_json()["error"]["message"]
+
+    # Unknown parameter on consumption report must be rejected
+    unknown_param = client.get(
+        "/api/v1/reports/consumption-variance?unknownField=123",
+        headers=_auth(token_factory()),
+    )
+    assert unknown_param.status_code == 400
+    assert "Unsupported parameter 'unknownField'" in unknown_param.get_json()["error"]["message"]
+
+
+def test_stock_and_custody_reports_support_location_id_filter(client, token_factory, monkeypatch):
+    calls = []
+
+    def fake_select(table, *, params):
+        calls.append((table, params))
+        return []
+
+    monkeypatch.setattr("app.services.reporting_service.rest_select", fake_select)
+    location_id = str(uuid4())
+    response = client.get(
+        f"/api/v1/reports/stock?locationId={location_id}",
+        headers=_auth(token_factory()),
+    )
+    assert response.status_code == 200
+    assert calls[0][1]["location_id"] == f"eq.{location_id}"
+

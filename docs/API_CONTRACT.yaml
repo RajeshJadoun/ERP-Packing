@@ -51,6 +51,9 @@ paths:
           name: materialId
           schema: { type: string, format: uuid }
         - in: query
+          name: locationId
+          schema: { type: string, format: uuid }
+        - in: query
           name: limit
           schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }
         - in: query
@@ -75,6 +78,15 @@ paths:
         - in: query
           name: materialId
           schema: { type: string, format: uuid }
+        - in: query
+          name: locationId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 500 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, maximum: 100000, default: 0 }
       responses:
         '200':
           description: Caller-scoped worker custody balances
@@ -1321,7 +1333,7 @@ components:
         The verified `sub` claim (auth.uid()) is used exclusively to derive the actor identity and is never
         accepted from request body or header parameters. Tokens are forwarded server-side to the PostgreSQL
         RPC layer where `get_current_user_role()` resolves the caller's application role under an empty
-        search path. The API comprises 34 operations (20 POST commands, 14 GET queries). Exactly 33 operations
+        search path. The API comprises 40 operations (20 POST commands, 20 GET queries). Exactly 39 operations
         are protected and require a valid Bearer token; GET /health is explicitly unauthenticated (security: []).
 
   parameters:

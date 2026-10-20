@@ -15,6 +15,7 @@ from .config import Settings
 from .errors import register_error_handlers
 from .idempotency import build_idempotency_context
 from .request_context import install_request_context
+from .routes.admin import admin_bp
 from .routes.boms import boms_bp
 from .routes.closing import closing_bp
 from .routes.planning import planning_bp
@@ -142,6 +143,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     api.register_blueprint(production_bp)
     api.register_blueprint(reports_bp)
     api.register_blueprint(closing_bp)
+    api.register_blueprint(admin_bp)
     app.register_blueprint(api)
     allowed_origins = [
         origin.strip()

@@ -61,8 +61,34 @@ def _shift_filter(filters: dict[str, str]) -> None:
     filters["shift_code"] = f"eq.{value}"
 
 
-def _list(report: str, *, date_column: str | None = None, material: bool = False,
-          worker: bool = False, vendor: bool = False, shift: bool = False):
+def _list(
+    report: str,
+    *,
+    date_column: str | None = None,
+    material: bool = False,
+    worker: bool = False,
+    vendor: bool = False,
+    shift: bool = False,
+    location: bool = False,
+):
+    allowed_params = {"limit", "offset"}
+    if date_column:
+        allowed_params.update({"fromDate", "toDate"})
+    if material:
+        allowed_params.add("materialId")
+    if worker:
+        allowed_params.add("workerId")
+    if vendor:
+        allowed_params.add("vendorId")
+    if shift:
+        allowed_params.add("shiftCode")
+    if location:
+        allowed_params.add("locationId")
+
+    for param in request.args:
+        if param not in allowed_params:
+            raise ApiError(400, "BAD_REQUEST", f"Unsupported parameter '{param}' for {report} report.")
+
     filters: dict[str, str] = {}
     start = _date_value("fromDate")
     end = _date_value("toDate")
@@ -85,19 +111,22 @@ def _list(report: str, *, date_column: str | None = None, material: bool = False
         _uuid_filter("vendorId", "vendor_id", filters)
     if shift:
         _shift_filter(filters)
+    if location:
+        _uuid_filter("locationId", "location_id", filters)
 
     limit, offset = _pagination()
     rows = list_report_rows(report, filters, limit=limit, offset=offset)
     return jsonify(rows), 200
 
+
 @reports_bp.get("/reports/stock")
 def report_stock():
-    return _list("stock", material=True)
+    return _list("stock", material=True, location=True)
 
 
 @reports_bp.get("/reports/worker-custody")
 def report_worker_custody():
-    return _list("worker-custody", material=True, worker=True)
+    return _list("worker-custody", material=True, worker=True, location=True)
 
 
 @reports_bp.get("/reports/consumption-variance")
@@ -118,3 +147,4 @@ def report_worker_output():
 @reports_bp.get("/reports/vendor-purchase-history")
 def report_vendor_purchase_history():
     return _list("vendor-purchase-history", date_column="received_date", vendor=True)
+
