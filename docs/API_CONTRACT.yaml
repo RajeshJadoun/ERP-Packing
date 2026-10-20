@@ -1053,7 +1053,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductionCompletionDetailResponse'
+                $ref: '#/components/schemas/VerifyProductionConsumptionResponse'
         '400':
           $ref: '#/components/responses/ErrorResponse'
         '401':
@@ -2397,12 +2397,15 @@ components:
     ProductionCompletionDetailResponse:
       type: object
       required:
+        - success
         - id
         - packingJobId
         - completedUnits
         - workerId
         - createdAt
       properties:
+        success:
+          type: boolean
         id:
           type: string
           format: uuid
@@ -2426,44 +2429,83 @@ components:
         completionPolicy:
           type: string
           enum: [AUTO_BOM_THEORETICAL, CONFIRMED_ACTUAL_ENTRY]
+        success:
+          type: boolean
+        completionId:
+          type: string
+          format: uuid
+        remainingPending:
+          type: integer
+          minimum: 0
+          description: Remaining job units after this completion; returned by the create operation.
         consumptions:
           type: array
           items:
-            type: object
-            required:
-              - materialId
-              - theoreticalQuantity
-              - varianceStatus
-            properties:
-              materialId:
-                type: string
-                format: uuid
-              theoreticalQuantity:
-                type: number
-                example: 530.0
-              physicallyConfirmedQuantity:
-                type: number
-                nullable: true
-              varianceQuantity:
-                type: number
-                nullable: true
-              varianceStatus:
-                type: string
-                enum: [UNVERIFIED, VERIFIED_ZERO, VARIANCE_RECORDED]
-                example: "UNVERIFIED"
-              postedLedgerQuantity:
-                type: number
-              canonicalUnitId:
-                type: string
-                format: uuid
-              ledgerQuantityEstimated:
-                type: boolean
-              physicalMeasurementMethod:
-                type: string
-                nullable: true
-              physicalMeasurementEvidence:
-                type: string
-                nullable: true
+            $ref: '#/components/schemas/ProductionConsumptionDetail'
+
+    ProductionConsumptionDetail:
+      type: object
+      required: [materialId, theoreticalQuantity, postedLedgerQuantity, varianceStatus, stockTransactionId]
+      properties:
+        materialId:
+          type: string
+          format: uuid
+        theoreticalQuantity:
+          type: number
+          example: 530.0
+        postedLedgerQuantity:
+          type: number
+        physicallyConfirmedQuantity:
+          type: number
+          nullable: true
+        physicallyConfirmedUnitId:
+          type: string
+          format: uuid
+          nullable: true
+        varianceQuantity:
+          type: number
+          nullable: true
+        varianceStatus:
+          type: string
+          enum: [UNVERIFIED, VERIFIED_ZERO, VARIANCE_RECORDED]
+          example: "UNVERIFIED"
+        stockTransactionId:
+          type: string
+          format: uuid
+        canonicalUnitId:
+          type: string
+          format: uuid
+        ledgerQuantityEstimated:
+          type: boolean
+        backflushMeasurementMethod:
+          type: string
+          nullable: true
+        physicalMeasurementMethod:
+          type: string
+          nullable: true
+        physicalMeasurementEvidence:
+          type: string
+          nullable: true
+
+    VerifyProductionConsumptionResponse:
+      type: object
+      required: [success, id, completionId, verifiedCount, consumptions]
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        completionId:
+          type: string
+          format: uuid
+        verifiedCount:
+          type: integer
+          minimum: 0
+        consumptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductionConsumptionDetail'
 
     ExecuteDailyCloseRequest:
       type: object
@@ -2537,6 +2579,11 @@ components:
         shiftCode:
           type: string
           example: "SHIFT_1"
+        success:
+          type: boolean
+        closingDate:
+          type: string
+          format: date
         totalJobsPlanned:
           type: integer
           example: 4
