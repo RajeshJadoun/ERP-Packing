@@ -283,7 +283,7 @@ The database consists of **33 core relational tables**, fully normalized to 3NF,
 ### Table 15: `purchase_order_lines`
 - **Purpose:** Line items of a purchase order.
 - **Primary Key:** `id` (UUID).
-- **Columns:** `po_id` (UUID, not null, FK `purchase_orders(id)` ON DELETE RESTRICT), `material_id` (UUID, not null, FK `materials(id)` ON DELETE RESTRICT), `ordered_quantity` (numeric, not null, check `ordered_quantity > 0`), `unit_id` (UUID, not null, FK `units(id)` ON DELETE RESTRICT), `received_quantity` (numeric, not null, default 0, check `received_quantity >= 0`), `created_at` (timestamptz).
+- **Columns:** `po_id` (UUID, not null, FK `purchase_orders(id)` ON DELETE RESTRICT), `material_id` (UUID, not null, FK `materials(id)` ON DELETE RESTRICT), `ordered_quantity` (numeric, not null, check `ordered_quantity > 0`), `unit_id` (UUID, not null, FK `units(id)` ON DELETE RESTRICT), `unit_price` (numeric, not null, default 0, check `unit_price >= 0`), `received_quantity` (numeric, not null, default 0, check `received_quantity >= 0`), `created_at` (timestamptz). `unit_price` was added by the Phase 4 migration to persist the `unitPrice` field already defined in `docs/API_CONTRACT.yaml`.
 - **Constraints & Indexes:** `UNIQUE(po_id, material_id)`.
 - **Classification:** Source-of-truth, stateful.
 
