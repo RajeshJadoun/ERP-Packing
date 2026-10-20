@@ -122,3 +122,57 @@ def test_services_reject_invalid_ids(app):
     with app.test_request_context("/api/v1/boms"):
         with pytest.raises(ApiError):
             activate_bom_version("not-a-uuid", idempotency=None)
+
+
+def test_daily_plan_read_handles_one_to_one_snapshot_object(app, monkeypatch):
+    from app.services.planning_service import get_packing_job
+
+    plan_id, job_id, snapshot_id = str(uuid4()), str(uuid4()), str(uuid4())
+    monkeypatch.setattr(
+        "app.services.planning_service.rest_select",
+        lambda table, *, params: [{
+            "id": job_id,
+            "job_code": "JOB-PHASE6-TEST",
+            "daily_plan_id": plan_id,
+            "party_id": str(uuid4()),
+            "product_id": str(uuid4()),
+            "master_bom_id": None,
+            "status": "DRAFT",
+            "priority": 1,
+            "original_planned_quantity": 20,
+            "current_revised_quantity": 20,
+            "completed_quantity": 0,
+            "pending_quantity": 20,
+            "cancelled_quantity": 0,
+            "packing_job_bom_snapshots": {
+                "id": snapshot_id,
+                "source_bom_id": None,
+                "bom_version": None,
+                "is_customized": True,
+                "customization_notes": "Custom wrap",
+                "frozen_at": "2026-10-20T00:00:00Z",
+                "packing_job_bom_snapshot_lines": [{
+                    "material_id": str(uuid4()),
+                    "quantity_per_unit": 2,
+                    "unit_id": str(uuid4()),
+                    "canonical_qty_per_unit": 2,
+                    "canonical_unit_id": str(uuid4()),
+                    "conversion_rule_id": None,
+                    "conversion_factor_frozen": 1,
+                    "conversion_direction": "NONE",
+                    "conversion_type": "EXACT",
+                    "is_optional": False,
+                    "notes": "Protect corners",
+                }],
+            },
+        }],
+    )
+    with app.test_request_context("/api/v1/packing-jobs/example"):
+        g.auth_token = "verified-caller-jwt"
+        from app.services.planning_service import get_packing_job
+
+        result = get_packing_job(job_id)
+
+    assert result["snapshot"]["id"] == snapshot_id
+    assert result["snapshot"]["isCustomized"] is True
+    assert result["snapshot"]["lines"][0]["applicationNotes"] == "Protect corners"
