@@ -52,7 +52,7 @@ def _database_status(app: Flask) -> str:
         try:
             response = httpx.get(
                 f"{supabase_url.rstrip('/')}/rest/v1/",
-                headers={"apikey": anon_key, "Authorization": f"Bearer {anon_key}"},
+                headers={"apikey": anon_key},
                 timeout=app.config["HEALTHCHECK_TIMEOUT_SECONDS"],
             )
             response.raise_for_status()
@@ -101,7 +101,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     @api.before_request
     def enforce_api_security() -> None:
         # Health is the one explicitly unauthenticated API operation.
-        if request.endpoint == "api.health":
+        if request.endpoint == "api.health" or request.method == "OPTIONS":
             return None
 
         authenticate_request()
