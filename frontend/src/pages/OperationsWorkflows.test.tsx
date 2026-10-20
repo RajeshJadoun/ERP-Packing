@@ -193,7 +193,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
         <Routes><Route path="/daily-plans/jobs/:id" element={<JobDetailPage role="PLANNER" />} /></Routes>
       </MemoryRouter>
     );
-    expect(await screen.findByText("520 = 0 + 520 + 0")).toBeInTheDocument();
+    expect(await screen.findByText(/520 = 0 \\+ 520 \\+ 0/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Revise target/i }));
     await user.clear(screen.getByLabelText(/New authorized target/));
@@ -201,13 +201,13 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.type(screen.getByLabelText(/Revision reason/), "Truck transport capacity limitation");
     await user.click(screen.getByRole("button", { name: "Confirm revision" }));
     await waitFor(() => expect(revisionBody).toMatchObject({ revisedQuantity: 450, reason: "Truck transport capacity limitation" }));
-    expect(await screen.findByText("450 = 0 + 450 + 0")).toBeInTheDocument();
+    expect(await screen.findByText(/450 = 0 \\+ 450 \\+ 0/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Cancel remainder/i }));
     await user.type(screen.getByLabelText(/Cancellation reason/), "Customer order cancelled");
     await user.click(screen.getByRole("button", { name: "Confirm cancellation" }));
     await waitFor(() => expect(cancellationBody).toMatchObject({ reason: "Customer order cancelled" }));
-    expect(await screen.findByText("450 = 0 + 0 + 450")).toBeInTheDocument();
+    expect(await screen.findByText(/450 = 0 \\+ 0 \\+ 450/)).toBeInTheDocument();
     expect(screen.getByText("CANCELLED")).toBeInTheDocument();
   });
 
