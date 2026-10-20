@@ -234,7 +234,7 @@ SELECT is(
 );
 
 SELECT is(
-    public.rpc_transfer_stock(
+    (public.rpc_transfer_stock(
         'f5000000-0000-4000-8000-000000000011',
         'f5000000-0000-4000-8000-000000000021',
         'f5000000-0000-4000-8000-000000000022',
