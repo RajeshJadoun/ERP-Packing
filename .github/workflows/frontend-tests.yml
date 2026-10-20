@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Audit dependency tree (diagnostic)
+        run: npm audit || true
+
       - name: Run unit and MSW tests
         run: npm run test -- --reporter=dot
 

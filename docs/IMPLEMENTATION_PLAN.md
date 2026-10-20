@@ -1,8 +1,8 @@
 # Implementation Roadmap & Phase-by-Phase Execution Plan
 
 **Project:** Packing Material Inventory & BOM Management System  
-**Document Version:** 1.12.0  
-**Status:** Phase 7 implementation committed; hosted Supabase migration and backend/database CI verified. Flask runtime deployment remains a separate step.  
+**Document Version:** 1.13.0  
+**Status:** Phase 7 database/backend verified. Phase 8 frontend scaffold committed with initial CI pass; complete workflow coverage, dependency audit and deployment remain in progress.  
 **Date:** 2026-10-20  
 
 ---
@@ -281,6 +281,8 @@ graph TD
 ---
 
 ### Phase 8: React + Vite + TypeScript Frontend Application & Workflows
+
+**Status:** Frontend foundation committed; Vitest (5 tests) and production build passed on commit 21acdb1. Phase 8 remains in progress: complete Scenario 1–13 integration coverage, dependency-audit resolution, and deployed end-to-end verification are still required. See docs/PHASE_8_FRONTEND_IMPLEMENTATION_REPORT.md.
 - **Scope:**
   - Scaffold React 19 + Vite + TypeScript application in `frontend/`.
   - Establish Vanilla CSS design system with responsive tokens.
@@ -303,11 +305,14 @@ graph TD
   - `frontend/src/index.css`
   - `frontend/src/main.tsx`
   - `frontend/src/App.tsx`
-  - `frontend/src/services/supabase.ts`
-  - `frontend/src/services/api.ts`
+  - `frontend/src/lib/supabase.ts`
+  - `frontend/src/lib/api.ts`
+  - `frontend/src/lib/domain.ts`
   - `frontend/src/components/*`
   - `frontend/src/pages/*`
-  - `frontend/tests/*`
+  - `frontend/src/lib/*.test.ts`
+  - `frontend/src/test/*`
+  - `.github/workflows/frontend-tests.yml`
 - **Dependencies:** Phase 7 backend APIs operational.
 - **Required Tests:**
   - Vitest component tests for form validations, category selection, and dual-unit formatting.
