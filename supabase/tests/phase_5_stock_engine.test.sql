@@ -359,14 +359,14 @@ SELECT throws_ok(
     'Storekeeper cannot bypass the administrator-only scrap disposal approval'
 );
 
-DO $
+DO $$
 BEGIN
     ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     UPDATE public.profiles
     SET role = 'ADMIN', is_active = true
     WHERE id = 'f5000000-0000-4000-8000-000000000001';
     ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
-END $;
+END $$;
 
 SELECT is(
     (public.rpc_post_stock_adjustment(
