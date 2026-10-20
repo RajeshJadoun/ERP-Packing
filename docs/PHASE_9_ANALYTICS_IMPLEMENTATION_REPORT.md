@@ -56,6 +56,7 @@ The CSV output contains the row fields returned by the reporting view, with stan
   - `backend/tests/test_reports.py` validates allow-listed views, filters, date ranges, UUID validation, pagination and authentication.
   - `frontend/src/pages/reports/ReportsAnalytics.test.tsx` checks report rendering, search and CSV export arguments.
   - `supabase/tests/phase_9_reporting_views.test.sql` checks view existence, invoker security, key output columns and role-level SELECT grants.
+- pgTAP database CI passed on [run 39443502375](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443502375).
 - Live SQL inspection confirmed all six views exist and have `security_invoker=true`, `anon_can_select=false` and `authenticated_can_select=true`.
 
 ## Environment limits / remaining verification
