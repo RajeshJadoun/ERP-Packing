@@ -16,9 +16,11 @@ BEGIN
         ('99999999-9999-9999-9999-999999999999', 'idem_tester@packing.test')
     ON CONFLICT (id) DO NOTHING;
 
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
         ('99999999-9999-9999-9999-999999999999', 'Idempotency Tester', 'ADMIN', true)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 END $$;
 
 -- 2. Test: Reject Key Under 16 Characters
@@ -114,7 +116,7 @@ SELECT is(
         'POST:/api/v1/stock/transfer',
         'hash_protocol_1',
         '99999999-9999-9999-9999-999999999999'
-    ))->>'action'),
+    )->>'action'),
     'PROCEED',
     'fn_acquire_idempotency returns action=PROCEED for new incoming request'
 );
