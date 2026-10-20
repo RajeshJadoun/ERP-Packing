@@ -154,6 +154,7 @@ In addition to state-changing commands, the Flask application server provides **
 - **Aggregated Inventory Views:**
   - `GET /api/v1/stock/balances` (Real-time material balances across locations, verified by RLS/role).
   - `GET /api/v1/stock/ledger` (Paginated, filterable immutable transaction history).
+  - `GET /api/v1/stock/worker-custody` (Worker-by-material summary for assigned WORKER_CUSTODY leaf locations).
 - **Authorized Resource Detail & Expired-Response Recovery Endpoints (10):**
   When a retried request receives HTTP 410 (`IDEMPOTENCY_RESPONSE_EXPIRED`), the client uses the returned `resourceReference.resourceType` and `resourceReference.resourceId` to fetch the completed entity details directly through these authorized GET routes. Every value in the `resourceType` enum maps to exactly one Flask GET route:
   - `GET /api/v1/goods-receipts/{id}` (`resourceType = 'GOODS_RECEIPT'`)
@@ -167,7 +168,7 @@ In addition to state-changing commands, the Flask application server provides **
   - `GET /api/v1/closings/{id}` (`resourceType = 'DAILY_CLOSING'`)
   - `GET /api/v1/admin/users/{targetId}` (`resourceType = 'PROFILE'`)
 
-**Total Flask endpoints: 33** (20 POST state-changing commands + 13 GET queries/lookups). Exactly 32 operations are protected and require a valid Bearer token, while 1 operation (`GET /health`) is explicitly unauthenticated.
+**Total Flask endpoints: 34** (20 POST state-changing commands + 14 GET queries/lookups). Exactly 33 operations are protected and require a valid Bearer token, while 1 operation (`GET /health`) is explicitly unauthenticated.
 
 ---
 
