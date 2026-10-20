@@ -1,8 +1,8 @@
 # Implementation Roadmap & Phase-by-Phase Execution Plan
 
 **Project:** Packing Material Inventory & BOM Management System  
-**Document Version:** 1.15.0  
-**Status:** Phase 7 database/backend verified. Phase 8 application and frontend/MSW workflow CI verified (30 tests across 6 files, strict npm audit with zero vulnerabilities, TypeScript and production build); live JWT/RLS validation and public SPA/Flask deployment smoke test remain gated on environment provisioning.  
+**Document Version:** 1.16.0  
+**Status:** Phase 7 database/backend verified. Phase 8 frontend/MSW workflow CI verified; live JWT/RLS validation and public SPA/Flask deployment smoke test remain gated on environment provisioning. Phase 9 reporting views, authenticated Flask endpoints, responsive analytics UI, filters, chart summaries and CSV/print-to-PDF exports are implemented; frontend and backend CI pass, with database CI and live authenticated data validation still being checked.  
 **Date:** 2026-10-20  
 
 ---
@@ -324,6 +324,9 @@ graph TD
 ---
 
 ### Phase 9: Operational Reports, Analytic Views & Material Reconciliations
+
+**Implementation status (2026-10-20):** Core implementation is committed to `main`. Six PostgreSQL views were applied to the linked Supabase project using `security_invoker=true`; direct SQL verification confirms SELECT access is denied to `anon` and granted to `authenticated`, while underlying table RLS remains authoritative. Six authenticated Flask report endpoints, validated inclusive date/shift/material/worker/vendor filters, bounded pagination, React analytics summaries, CSV export and browser print-to-PDF are implemented. Frontend CI passed on [run 39443676394](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443676394), and Flask tests plus Ruff passed on [run 39443769015](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443769015). The linked database currently has no provisioned Auth users and operational test rows are empty, so the actual user-JWT report result set and performance under populated data remain deployment/seed-data verification items. See [Phase 9 implementation report](PHASE_9_ANALYTICS_IMPLEMENTATION_REPORT.md).
+
 - **Scope:**
   - Implement SQL analytical views in PostgreSQL:
     - `vw_stock_by_location`: Segregated by usable store, worker custody, and quarantine.
@@ -333,9 +336,10 @@ graph TD
   - Implement backend reporting endpoints under `/api/v1/reports/*`.
   - Build interactive reporting screens in React with date/shift range filters, search, and CSV/PDF export.
 - **Files / Modules Expected to Change:**
-  - `supabase/migrations/20261015000004_reporting_views.sql`
-  - `backend/app/routes/reports.py`
-  - `frontend/src/pages/reports/*`
+  - `supabase/migrations/20261020150000_phase_9_reporting_views.sql`
+  - `supabase/tests/phase_9_reporting_views.test.sql`
+  - `backend/app/services/reporting_service.py` and `backend/app/routes/reports.py`
+  - `frontend/src/pages/reports/ReportsAnalytics.tsx`, `reports.css` and `ReportsAnalytics.test.tsx`
 - **Dependencies:** Phase 8 frontend application.
 - **Required Tests:**
   - Report accuracy tests matching ledger aggregates.
