@@ -9,7 +9,10 @@ import { server } from "../test/server";
 import { createSupabaseMock, type MockRow } from "../test/supabaseMock";
 import { PurchasingPage } from "./Purchasing";
 import { PlanningPage, JobDetailPage } from "./Planning";
-import { ProductionPage } from "./ProductionClosing";
+import { ProductionPage, ClosingPage } from "./ProductionClosing";
+import { CustodyPage } from "./Custody";
+import { QuarantinePage } from "./Stock";
+import { BomStudioPage } from "./BomStudio";
 
 const userSession = { access_token: "test-operations-token" };
 
@@ -100,7 +103,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.selectOptions(screen.getByLabelText(/^Material/), materialId);
     await user.clear(screen.getByLabelText(/Ordered quantity/));
     await user.type(screen.getByLabelText(/Ordered quantity/), "100");
-    await user.selectOptions(screen.getByLabelText(/Unit/), unitId);
+    await user.selectOptions(screen.getAllByLabelText(/Unit/)[0], unitId);
     await user.clear(screen.getByLabelText(/Unit price/));
     await user.type(screen.getByLabelText(/Unit price/), "2.5");
     await user.click(screen.getByRole("button", { name: "Create draft PO" }));
