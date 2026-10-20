@@ -145,7 +145,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[0], "bom-v1");
     await user.click(screen.getByRole("button", { name: /Add job/i }));
     await user.selectOptions(screen.getAllByLabelText(/Customer party/)[1], partyId);
-    await user.selectOptions(screen.getAllByLabelText(/^Product$/)[1], productId);
+    await user.selectOptions(screen.getAllByLabelText(/Product/)[1], productId);
     await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[1], "bom-v2");
     await user.clear(screen.getAllByLabelText(/Planned quantity/)[0]);
     await user.type(screen.getAllByLabelText(/Planned quantity/)[0], "300");
@@ -519,7 +519,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
 
     render(<MemoryRouter><ClosingPage role="STOREKEEPER" /></MemoryRouter>);
     await user.click(await screen.findByRole("button", { name: /Reconcile/ }));
-    expect(await screen.findByText("PLAN-001")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "PLAN-001" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Validate & close shift" }));
 
     expect(await screen.findByText(/Shift closing saved\. 0 discrepancy item\(s\) are recorded/i)).toBeInTheDocument();
