@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import httpx
 import psycopg
 from flask import Blueprint, Flask, current_app, g, jsonify, request
+from flask_cors import CORS
 
 from .auth import JWTVerifier, authenticate_request, resolve_profile_from_supabase
 from .config import Settings
@@ -73,7 +74,9 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         APP_HOST=settings.app_host,
         APP_PORT=settings.app_port,
         LOG_LEVEL=settings.log_level,
+        CORS_ALLOWED_ORIGINS=settings.cors_allowed_origins,
         HEALTHCHECK_TIMEOUT_SECONDS=settings.healthcheck_timeout_seconds,
+        SUPABASE_RPC_TIMEOUT_SECONDS=settings.supabase_rpc_timeout_seconds,
         SUPABASE_URL=settings.supabase_url,
         SUPABASE_ANON_KEY=_secret_value(settings.supabase_anon_key),
         SUPABASE_JWT_SECRET=_secret_value(settings.supabase_jwt_secret),
@@ -126,6 +129,22 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         return jsonify(payload), (200 if healthy else 503)
 
     app.register_blueprint(api)
+    allowed_origins = [
+        origin.strip()
+        for origin in str(app.config.get("CORS_ALLOWED_ORIGINS", "")).split(",")
+        if origin.strip()
+    ]
+    if "*" in allowed_origins:
+        raise ValueError("CORS_ALLOWED_ORIGINS must use an explicit origin allow-list.")
+    if allowed_origins:
+        CORS(
+            app,
+            resources={r"/api/v1/*": {"origins": allowed_origins}},
+            supports_credentials=False,
+            allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
+            expose_headers=["X-Request-ID"],
+            methods=["GET", "POST", "OPTIONS"],
+        )
     install_request_context(app)
     register_error_handlers(app)
     return app
