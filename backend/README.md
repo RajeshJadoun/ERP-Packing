@@ -41,6 +41,42 @@ database RPC transaction; the HTTP middleware calculates the operation scope
 and canonical request hash but does not create an idempotency header in a
 separate transaction.
 
+## Phase 4 purchasing endpoints
+
+The first purchasing slice is implemented in `app/routes/purchasing.py`:
+
+- `POST /api/v1/purchase-orders` — ADMIN/STOREKEEPER only; requires a validated
+  `Idempotency-Key`. The database RPC creates the PO header and all lines in a
+  single transaction. New POs start in `DRAFT`; PO creation never changes stock.
+- `GET /api/v1/purchase-orders/{id}` — retrieves the PO and its persisted lines
+  through PostgREST, filtered by ID and protected by the caller's JWT/RLS.
+- `POST /api/v1/goods-receipts/post` — ADMIN/STOREKEEPER only; requires a draft
+  `goodsReceiptId` and `Idempotency-Key`. The existing transactional GRN RPC
+  recalculates accepted and canonical quantities, applies conversion provenance,
+  updates PO receipt totals, and appends purchase-receipt ledger rows atomically.
+- `GET /api/v1/goods-receipts/{id}` — retrieves the receipt calculations and
+  per-line stock transaction references.
+
+Draft GRN headers and lines are staged through the caller-authenticated Supabase
+REST/RLS path. Header checks require an active vendor, an active leaf receiving
+bay or shelf, invoice date not later than the receipt date, and a vendor matching
+the linked PO. Direct REST inserts can only create DRAFT receipt headers; posting
+to stock is restricted to the transactional RPC.
+
+The Phase 4 migration adds `purchase_order_lines.unit_price`, which is required
+by the API contract's `unitPrice` field. Authenticated direct write privileges
+on purchase-order headers/lines are revoked; those records are created by the
+atomic RPC. Do not apply `20261020000006_phase_4_purchasing_rpc.sql` to a remote
+Supabase project until CI is green and the PR is approved/merged.
+
+## Master catalogs
+
+Master data remains data-driven and RLS-protected. The `master_service.py`
+helpers use the original verified caller JWT and a public/publishable API key,
+with an allow-list for master tables. The frontend may use Supabase PostgREST
+directly for permitted catalog CRUD; PostgreSQL RLS and triggers remain the
+authorization and integrity boundary. No service-role credential is used here.
+
 ## API health
 
 `GET http://127.0.0.1:5000/api/v1/health` returns the health state, database
