@@ -5,5 +5,6 @@ export { PurchasingPage } from "./Purchasing";
 export { BomStudioPage } from "./BomStudio";
 export { PlanningPage, JobDetailPage } from "./Planning";
 export { ProductionPage, ClosingPage } from "./ProductionClosing";
+export { ConsumptionVerificationPage } from "./ConsumptionVerification";
 export { CustodyPage } from "./Custody";
 export { ReportsPage, AdminPage } from "./ReportsAdmin";

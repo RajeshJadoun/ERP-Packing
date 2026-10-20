@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CalendarDays, ClipboardList, Plus, RefreshCw, Rocket, SlidersHorizontal } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { quantityBalanced, quantityEquation, formatQuantity } from "../lib/domain";
 import { Alert, Badge, Button, Card, DataTable, Field, Modal, PageHeader, SearchBox, SelectField, StatusBadge, TextArea, Toolbar } from "../components/ui";
 import { Row, displayDate, selectRows, useAsyncData } from "./shared";
@@ -93,7 +94,7 @@ export function PlanningPage({role,shift}:{role:string;shift:string}) {
   </div>;
 }
 
-export function JobDetailPage() {
+export function JobDetailPage({role}:{role:string}) {
   const {id}=useParams();
   const navigate=useNavigate();
   const [selectedId,setSelectedId]=useState(id??"");
@@ -103,7 +104,25 @@ export function JobDetailPage() {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState<{kind:"success"|"error";text:string}|null>(null);
   const list=useAsyncData(()=>selectRows("packing_jobs","id,job_code,daily_plan_id,status,current_revised_quantity,completed_quantity,pending_quantity,cancelled_quantity,original_planned_quantity,party_id,product_id","created_at",500));
-  const detail=useAsyncData(async()=>selectedId?apiGet<Row>(`/packing-jobs/${selectedId}`):null,selectedId);
+  const detail=useAsyncData(async()=>selectedId?apiGet<Row>("/packing-jobs/"+selectedId):null,selectedId);
+  const completionsState=useAsyncData(async()=>{
+    if(!selectedId)return [];
+    const {data:rows,error}=await supabase.from("production_completions")
+      .select("id,packing_job_id,completion_number,completed_units,completion_policy,completion_timestamp")
+      .eq("packing_job_id",selectedId).order("completion_timestamp",{ascending:false}).limit(100);
+    if(error)throw error;
+    const completions=(rows??[]) as Row[];
+    const ids=completions.map((row)=>row.id);
+    if(!ids.length)return [];
+    const {data:consumption,error:consumptionError}=await supabase.from("material_consumption_records")
+      .select("production_completion_id,variance_status").in("production_completion_id",ids);
+    if(consumptionError)throw consumptionError;
+    return completions.map((row)=>({
+      ...row,
+      unverifiedCount:(consumption??[]).filter((item)=>item.production_completion_id===row.id&&item.variance_status==="UNVERIFIED").length,
+      varianceCount:(consumption??[]).filter((item)=>item.production_completion_id===row.id&&item.variance_status==="VARIANCE_RECORDED").length
+    }));
+  },selectedId);
   const job=detail.data;
   const q=job?.quantityStatus;
   const balanced=q?quantityBalanced(q):false;
@@ -142,7 +161,18 @@ export function JobDetailPage() {
         {key:"required",label:"Total required",render:(r:Row)=>formatQuantity(Number(r.canonicalQuantityPerUnit)*q.currentRevisedQuantity)},
         {key:"canonicalUnitId",label:"Canonical unit",render:(r:Row)=>String(r.canonicalUnitId).slice(0,8)},
         {key:"isOptional",label:"Line",render:(r:Row)=><Badge tone={r.isOptional?"neutral":"blue"}>{r.isOptional?"Optional":"Required"}</Badge>}
-      ]}/></Card><Card><div className="panel-heading"><div><h2>Production & history</h2><p>Every completion records the worker, ledger movements and consumption verification status.</p></div><Button onClick={()=>navigate(`/daily-plans/jobs/${job.id}/complete`)}>New completion <Rocket size={14}/></Button></div><div className="workflow-cards"><div><span>1</span><strong>Issue materials</strong><p>Issue stock to the worker custody location.</p><Button variant="secondary" onClick={()=>navigate("/worker-custody")}>Open custody</Button></div><div><span>2</span><strong>Record packed units</strong><p>Save the output and estimated/physical consumption.</p><Button variant="secondary" onClick={()=>navigate(`/daily-plans/jobs/${job.id}/complete`)}>Production entry</Button></div><div><span>3</span><strong>Reconcile the shift</strong><p>Verify any unmeasured quantities before closing.</p><Button variant="secondary" onClick={()=>navigate("/closings")}>Closing console</Button></div></div></Card></>:null}
+      ]}/></Card><Card><div className="panel-heading"><div><h2>Production & history</h2><p>Every completion records the worker, ledger movements and consumption verification status.</p></div><Button onClick={()=>navigate(`/daily-plans/jobs/${job.id}/complete`)}>New completion <Rocket size={14}/></Button></div><div className="workflow-cards"><div><span>1</span><strong>Issue materials</strong><p>Issue stock to the worker custody location.</p><Button variant="secondary" onClick={()=>navigate("/worker-custody")}>Open custody</Button></div><div><span>2</span><strong>Record packed units</strong><p>Save the output and estimated/physical consumption.</p><Button variant="secondary" onClick={()=>navigate(`/daily-plans/jobs/${job.id}/complete`)}>Production entry</Button></div><div><span>3</span><strong>Reconcile the shift</strong><p>Verify any unmeasured quantities before closing.</p><Button variant="secondary" onClick={()=>navigate("/closings")}>Closing console</Button></div></div></Card>
+      <Card padding={false}>
+        <div className="panel-heading padded"><div><h2>Production completion history</h2><p>Review batches and verify physical counts for theoretical-only backflush entries.</p></div><Badge>{completionsState.data?.length??0} batches</Badge></div>
+        {completionsState.error?<div className="padded"><Alert kind="error">{completionsState.error}</Alert></div>:null}
+        <DataTable rows={completionsState.data??[]} rowKey={(row:Row)=>String(row.id)} columns={[
+          {key:"completion_number",label:"Completion",render:(row:Row)=><div><strong>{row.completion_number}</strong><small>{displayDate(row.completion_timestamp)}</small></div>},
+          {key:"completed_units",label:"Packed",render:(row:Row)=><strong>{formatQuantity(row.completed_units,0)}</strong>},
+          {key:"completion_policy",label:"Policy",render:(row:Row)=><Badge tone={row.completion_policy==="AUTO_BOM_THEORETICAL"?"amber":"blue"}>{String(row.completion_policy??"—").replaceAll("_"," ")}</Badge>},
+          {key:"status",label:"Counts",render:(row:Row)=><div><StatusBadge status={Number(row.unverifiedCount)>0?"UNVERIFIED":Number(row.varianceCount)>0?"VARIANCE_RECORDED":"VERIFIED_ZERO"}/><small>{row.unverifiedCount} unverified · {row.varianceCount} variance</small></div>},
+          {key:"action",label:"",render:(row:Row)=>Number(row.unverifiedCount)>0&&["ADMIN","OPERATOR","PLANNER"].includes(role)?<Button variant="secondary" onClick={()=>navigate("/production/completions/"+row.id+"/verify")}>Verify counts →</Button>:<span className="muted-text">Saved</span>}
+        ]} emptyTitle="No production completions" emptyDescription="Record a production batch to start its consumption verification history."/>
+      </Card></>:null}
     {openModal&&job?<Modal title={openModal==="revise"?"Revise authorized target":"Cancel pending remainder"} description={openModal==="revise"?"The target cannot be lower than already completed production.":"Cancellation preserves completed units and marks only the pending quantity as cancelled."} onClose={()=>setOpenModal(null)}><form className="stack-form" onSubmit={saveAction}>{openModal==="revise"?<Field label="New authorized target" value={quantity} onChange={setQuantity} type="number" min={q.completedQuantity} step={1} required hint={`Minimum permitted value: ${q.completedQuantity} completed units.`}/>:<div className="info-footnote"><ClipboardList size={15}/><span>{q.pendingQuantity} units will be cancelled; {q.completedQuantity} completed units remain recorded.</span></div>}<TextArea label={openModal==="revise"?"Revision reason":"Cancellation reason"} value={reason} onChange={setReason} rows={3} required placeholder="Write a traceable reason (minimum 3 characters)."/><div className="form-footer"><Button variant="secondary" onClick={()=>setOpenModal(null)}>Go back</Button><Button type="submit" variant={openModal==="cancel"?"danger":"primary"} loading={busy}>{openModal==="revise"?"Confirm revision":"Confirm cancellation"}</Button></div></form></Modal>:null}
   </div>;
 }

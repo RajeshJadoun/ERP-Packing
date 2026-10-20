@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, supabaseConfigured } from "./lib/supabase";
-import { AdminPage, BomStudioPage, CatalogPage, ClosingPage, CustodyPage, DashboardPage, JobDetailPage, PlanningPage, ProductionPage, PurchasingPage, QuarantinePage, ReportsPage, StockPage } from "./pages";
+import { AdminPage, BomStudioPage, CatalogPage, ClosingPage, ConsumptionVerificationPage, CustodyPage, DashboardPage, JobDetailPage, PlanningPage, ProductionPage, PurchasingPage, QuarantinePage, ReportsPage, StockPage } from "./pages";
 import { Alert, Button, Loading } from "./components/ui";
 
 type UserProfile = { id: string; full_name?: string | null; role?: string | null; is_active?: boolean | null };
@@ -119,9 +119,10 @@ function AppShell({ session, onSignOut }: { session: Session; onSignOut: () => P
         <Route path="/worker-custody" element={<CustodyPage role={role}/>}/>
         <Route path="/boms" element={<BomStudioPage role={role}/>}/>
         <Route path="/daily-plans" element={<PlanningPage role={role} shift={shift}/>}/>
-        <Route path="/daily-plans/jobs" element={<JobDetailPage/>}/>
-        <Route path="/daily-plans/jobs/:id" element={<JobDetailPage/>}/>
+        <Route path="/daily-plans/jobs" element={<JobDetailPage role={role}/>}/>
+        <Route path="/daily-plans/jobs/:id" element={<JobDetailPage role={role}/>}/>
         <Route path="/daily-plans/jobs/:id/complete" element={<ProductionPage role={role}/>}/>
+        <Route path="/production/completions/:id/verify" element={<ConsumptionVerificationPage role={role}/>}/>
         <Route path="/closings" element={<ClosingPage role={role}/>}/>
         <Route path="/reports" element={<ReportsPage/>}/>
         <Route path="/admin" element={<AdminPage role={role} profile={profile}/>}/>
