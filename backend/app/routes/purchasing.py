@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from datetime import date
-from uuid import UUID
 from decimal import Decimal
+from uuid import UUID
 
 from flask import Blueprint, g, jsonify
 from pydantic import BaseModel, ConfigDict, Field, field_validator
