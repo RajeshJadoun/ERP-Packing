@@ -36,11 +36,19 @@ BEGIN
     SELECT id INTO v_unit_pcs_id FROM public.units WHERE code = 'PCS';
     SELECT id INTO v_cat_id FROM public.material_categories WHERE code = 'CORRUGATED_BOX';
 
+    INSERT INTO auth.users (id, email)
+    VALUES
+        (v_admin_id, 'closing_admin@packing.test'),
+        (v_supervisor_id, 'supervisor-' || v_supervisor_id::text || '@packing.test')
+    ON CONFLICT (id) DO NOTHING;
+
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles (id, full_name, role, is_active)
     VALUES 
         (v_admin_id, 'Closing Admin', 'ADMIN', true),
         (v_supervisor_id, 'Shift Supervisor', 'STOREKEEPER', true)
     ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = true;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     INSERT INTO public.locations (id, location_code, name, location_type, is_leaf, is_active)
     VALUES 
