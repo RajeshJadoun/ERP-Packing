@@ -68,10 +68,12 @@ INSERT INTO auth.users (id, email) VALUES
     ('22222222-2222-2222-2222-222222222222', 'operator@packing.test')
 ON CONFLICT (id) DO NOTHING;
 
+ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
 INSERT INTO public.profiles (id, full_name, role, is_active) VALUES
     ('11111111-1111-1111-1111-111111111111', 'Test Admin User', 'ADMIN', true),
     ('22222222-2222-2222-2222-222222222222', 'Test Shopfloor Operator', 'OPERATOR', true)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
 -- 5. Test Profile Self-Protection: Operator cannot escalate role
 SELECT throws_ok(
@@ -114,8 +116,11 @@ SELECT throws_ok(
     'admin_update_profile_access rejects unauthenticated execution (SQLSTATE 28000)'
 );
 
--- 10. Verify Deactivated User Fails Closed
+-- 10. Verify Deactivated User Fails Closed. Use the seeded administrator context.
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 UPDATE public.profiles SET is_active = false WHERE id = '22222222-2222-2222-2222-222222222222';
+SELECT set_config('request.jwt.claim.sub', '', true);
 SELECT is(
     (SELECT role FROM public.profiles WHERE id = '22222222-2222-2222-2222-222222222222' AND is_active = true),
     NULL,
