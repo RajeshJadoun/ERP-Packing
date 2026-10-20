@@ -1,8 +1,8 @@
 # Implementation Roadmap & Phase-by-Phase Execution Plan
 
 **Project:** Packing Material Inventory & BOM Management System  
-**Document Version:** 1.13.0  
-**Status:** Phase 7 database/backend verified. Phase 8 frontend scaffold committed with initial CI pass; complete workflow coverage, dependency audit and deployment remain in progress.  
+**Document Version:** 1.14.0  
+**Status:** Phase 7 database/backend verified. Phase 8 frontend CI verified (13 tests, strict npm audit with zero vulnerabilities, TypeScript and production build); Scenario 1–13 end-to-end coverage and public deployment remain in progress.  
 **Date:** 2026-10-20  
 
 ---
@@ -282,7 +282,7 @@ graph TD
 
 ### Phase 8: React + Vite + TypeScript Frontend Application & Workflows
 
-**Status:** Frontend foundation committed; Vitest (5 tests) and production build passed on commit 21acdb1. Phase 8 remains in progress: complete Scenario 1–13 integration coverage, dependency-audit resolution, and deployed end-to-end verification are still required. See docs/PHASE_8_FRONTEND_IMPLEMENTATION_REPORT.md.
+**Status:** Frontend CI passes on 5a05213: 13 tests across 4 files, zero npm audit vulnerabilities, TypeScript and production build passed. Phase 8 remains in progress: end-to-end Scenario 1–13 coverage, live role/RLS validation and deployment smoke test are still required. See docs/PHASE_8_FRONTEND_IMPLEMENTATION_REPORT.md.
 - **Scope:**
   - Scaffold React 19 + Vite + TypeScript application in `frontend/`.
   - Establish Vanilla CSS design system with responsive tokens.
