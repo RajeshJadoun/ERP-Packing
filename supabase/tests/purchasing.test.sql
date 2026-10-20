@@ -86,7 +86,7 @@ BEGIN
         v_po_id, 'PO-2026-0001', v_vendor_id, current_date, 'APPROVED', v_admin_id
     );
 
-    -- PO has two separate lines for the same material (e.g. two separate deliveries or packaging specs)
+    -- Each material has one PO line, as required by UNIQUE(po_id, material_id).
     INSERT INTO public.purchase_order_lines (id, po_id, material_id, ordered_quantity, unit_id)
     VALUES (v_po_line_1_id, v_po_id, v_mat_id, 25.0, v_unit_kg_id);
 
