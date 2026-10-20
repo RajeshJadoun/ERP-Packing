@@ -180,6 +180,7 @@ graph TD
 
 ### Phase 5: Authoritative Stock Ledger, Worker Custody & Inventory Movements
 - **Scope:**
+  - Implement `GET /api/v1/stock/balances`, `GET /api/v1/stock/ledger`, `GET /api/v1/stock/worker-custody`, `GET /api/v1/stock/transactions/{id}`, and `GET /api/v1/stock/adjustments/{id}` with bounded filters and pagination.
   - Implement core stock query engine: balances across all **6 Facility Node Types** (`STORE_SHELF`, `RECEIVING_BAY`, `SHOP_FLOOR_BUFFER`, `WORKER_CUSTODY`, `DAMAGE_QUARANTINE`, `DISPATCH`), transaction ledger, worker custody summary.
   - Implement signed aggregation equation and synchronize `material_location_balances` on leaf nodes.
   - Implement atomic movement services with row-level locks:
