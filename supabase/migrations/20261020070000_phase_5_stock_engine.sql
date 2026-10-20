@@ -135,6 +135,35 @@ BEGIN
             USING ERRCODE = '23514';
     END IF;
 
+    -- Transaction-scoped advisory locks also cover a balance row that does not
+    -- exist yet. All movements lock location keys in UUID order, making first-row
+    -- insert races deterministic per material/location.
+    IF p_source_location_id IS NOT NULL AND p_destination_location_id IS NOT NULL THEN
+        IF p_source_location_id < p_destination_location_id THEN
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended(p_material_id::text || ':' || p_source_location_id::text, 0)
+            );
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended(p_material_id::text || ':' || p_destination_location_id::text, 0)
+            );
+        ELSE
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended(p_material_id::text || ':' || p_destination_location_id::text, 0)
+            );
+            PERFORM pg_catalog.pg_advisory_xact_lock(
+                pg_catalog.hashtextextended(p_material_id::text || ':' || p_source_location_id::text, 0)
+            );
+        END IF;
+    ELSIF p_source_location_id IS NOT NULL THEN
+        PERFORM pg_catalog.pg_advisory_xact_lock(
+            pg_catalog.hashtextextended(p_material_id::text || ':' || p_source_location_id::text, 0)
+        );
+    ELSIF p_destination_location_id IS NOT NULL THEN
+        PERFORM pg_catalog.pg_advisory_xact_lock(
+            pg_catalog.hashtextextended(p_material_id::text || ':' || p_destination_location_id::text, 0)
+        );
+    END IF;
+
     -- Deterministic lock ordering prevents two transfers from locking balances
     -- in opposite orders. The availability check happens while the source row
     -- is locked, and the balance trigger updates are part of this transaction.
@@ -683,3 +712,156 @@ REVOKE ALL ON FUNCTION public.rpc_scrap_disposal(uuid, uuid, numeric, uuid, text
     FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_scrap_disposal(uuid, uuid, numeric, uuid, text, text, text)
     TO authenticated;
+
+-- Serialize cycle-count adjustments even when no projection row exists yet.
+-- The advisory lock key matches the one used by fn_post_stock_transaction.
+CREATE OR REPLACE FUNCTION public.rpc_post_stock_adjustment(
+    p_adjustment_number text,
+    p_material_id uuid,
+    p_location_id uuid,
+    p_counted_quantity numeric,
+    p_reason text,
+    p_idempotency_key text,
+    p_request_hash text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_actor_id uuid := auth.uid();
+    v_role text := public.get_current_user_role();
+    v_book numeric := 0;
+    v_diff numeric;
+    v_adj_id uuid := gen_random_uuid();
+    v_mat public.materials;
+    v_loc public.locations;
+    v_src uuid;
+    v_dst uuid;
+    v_abs_qty numeric;
+    v_tx public.stock_transactions;
+    v_idem jsonb;
+    v_response jsonb;
+BEGIN
+    IF v_role IS DISTINCT FROM 'ADMIN' THEN
+        RAISE EXCEPTION 'Unauthorized: Only administrators can sign off stock adjustments.'
+            USING ERRCODE = '42501';
+    END IF;
+    IF p_adjustment_number IS NULL OR trim(p_adjustment_number) = '' THEN
+        RAISE EXCEPTION 'An adjustment number is required.' USING ERRCODE = '22023';
+    END IF;
+    IF p_counted_quantity IS NULL
+       OR p_counted_quantity::text IN ('NaN', 'Infinity', '-Infinity')
+       OR p_counted_quantity < 0 THEN
+        RAISE EXCEPTION 'Counted quantity must be finite and non-negative.'
+            USING ERRCODE = '23514';
+    END IF;
+    IF p_reason IS NULL OR trim(p_reason) = '' THEN
+        RAISE EXCEPTION 'An adjustment reason is mandatory.' USING ERRCODE = '22023';
+    END IF;
+
+    v_idem := public.fn_acquire_idempotency(
+        p_idempotency_key, 'POST:/api/v1/stock/adjustments', p_request_hash, v_actor_id
+    );
+    IF v_idem->>'action' = 'REPLAY' THEN RETURN v_idem->'body';
+    ELSIF v_idem->>'action' = 'EXPIRED' THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_idem USING ERRCODE = '23514';
+    END IF;
+
+    SELECT * INTO v_mat
+    FROM public.materials
+    WHERE id = p_material_id AND is_active = true;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Material % does not exist or is inactive.', p_material_id
+            USING ERRCODE = '23503';
+    END IF;
+
+    SELECT * INTO v_loc
+    FROM public.locations
+    WHERE id = p_location_id AND is_active = true AND is_leaf = true;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Stock adjustment requires an active leaf location.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(p_material_id::text || ':' || p_location_id::text, 0)
+    );
+
+    INSERT INTO public.material_location_balances (
+        material_id, location_id, on_hand_quantity, updated_at
+    ) VALUES (
+        p_material_id, p_location_id, 0, clock_timestamp()
+    )
+    ON CONFLICT (material_id, location_id) DO NOTHING;
+
+    SELECT on_hand_quantity
+    INTO v_book
+    FROM public.material_location_balances
+    WHERE material_id = p_material_id AND location_id = p_location_id
+    FOR UPDATE;
+
+    v_diff := p_counted_quantity - coalesce(v_book, 0);
+    IF v_diff = 0 THEN
+        RAISE EXCEPTION 'No adjustment needed: counted quantity equals book quantity.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    INSERT INTO public.stock_adjustments (
+        id, adjustment_number, material_id, location_id, counted_quantity,
+        book_quantity, difference_quantity, reason, approved_by, created_at
+    ) VALUES (
+        v_adj_id, p_adjustment_number, p_material_id, p_location_id, p_counted_quantity,
+        coalesce(v_book, 0), v_diff, p_reason, v_actor_id, clock_timestamp()
+    );
+
+    IF v_diff > 0 THEN
+        v_src := NULL;
+        v_dst := p_location_id;
+        v_abs_qty := v_diff;
+    ELSE
+        v_src := p_location_id;
+        v_dst := NULL;
+        v_abs_qty := abs(v_diff);
+    END IF;
+
+    v_tx := public.fn_post_stock_transaction(
+        p_idempotency_key => p_idempotency_key,
+        p_transaction_sequence => 1,
+        p_material_id => p_material_id,
+        p_movement_type => 'STOCK_ADJUSTMENT',
+        p_source_location_id => v_src,
+        p_destination_location_id => v_dst,
+        p_worker_id => NULL,
+        p_quantity => v_abs_qty,
+        p_unit_id => v_mat.canonical_unit_id,
+        p_entered_quantity => v_abs_qty,
+        p_entered_unit_id => v_mat.canonical_unit_id,
+        p_measurement_method => 'INSPECTION_AUDIT',
+        p_measurement_evidence => p_reason,
+        p_movement_reason => p_reason,
+        p_stock_adjustment_id => v_adj_id,
+        p_created_by => v_actor_id
+    );
+
+    v_response := jsonb_build_object(
+        'success', true,
+        'stockAdjustmentId', v_adj_id,
+        'adjustmentNumber', p_adjustment_number,
+        'stockTransactionId', v_tx.id,
+        'differenceQuantity', v_diff
+    );
+    PERFORM public.fn_complete_idempotency(
+        p_idempotency_key, 'STOCK_ADJUSTMENT', v_adj_id, 201, v_response
+    );
+    RETURN v_response;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.rpc_post_stock_adjustment(text, uuid, uuid, numeric, text, text, text)
+    FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.rpc_post_stock_adjustment(text, uuid, uuid, numeric, text, text, text)
+    TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
