@@ -283,7 +283,7 @@ SELECT throws_ok(
         'req_phase5_overissue_000001',
         'phase5-overissue-hash-1'
     )
-    $,
+    $$,
     '23514',
     NULL,
     'Transfer is rejected when locked source balance is insufficient'
@@ -353,7 +353,7 @@ SELECT throws_ok(
         'req_phase5_scrap_denied_0001',
         'phase5-scrap-denied-hash-1'
     )
-    $,
+    $$,
     '42501',
     NULL,
     'Storekeeper cannot bypass the administrator-only scrap disposal approval'
