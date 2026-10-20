@@ -7,13 +7,20 @@ from datetime import datetime, timezone
 
 import httpx
 import psycopg
-from flask import Blueprint, Flask, current_app, jsonify, request
+from flask import Blueprint, Flask, current_app, g, jsonify, request
 
-from .auth import authenticate_request, resolve_profile_from_supabase
+from .auth import JWTVerifier, authenticate_request, resolve_profile_from_supabase
 from .config import Settings
-from .errors import ApiError, register_error_handlers
+from .errors import register_error_handlers
 from .idempotency import build_idempotency_context
 from .request_context import install_request_context
+
+
+def _secret_value(value) -> str | None:
+    if value is None:
+        return None
+    getter = getattr(value, "get_secret_value", None)
+    return getter() if callable(getter) else str(value)
 
 
 def _database_status(app: Flask) -> str:
@@ -29,7 +36,10 @@ def _database_status(app: Flask) -> str:
     database_url = app.config.get("DATABASE_URL")
     if database_url:
         try:
-            with psycopg.connect(database_url, connect_timeout=app.config["HEALTHCHECK_TIMEOUT_SECONDS"]) as conn:
+            with psycopg.connect(
+                database_url,
+                connect_timeout=app.config["HEALTHCHECK_TIMEOUT_SECONDS"],
+            ) as conn:
                 conn.execute("SELECT 1")
             return "CONNECTED"
         except Exception:
@@ -65,24 +75,19 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         LOG_LEVEL=settings.log_level,
         HEALTHCHECK_TIMEOUT_SECONDS=settings.healthcheck_timeout_seconds,
         SUPABASE_URL=settings.supabase_url,
-        SUPABASE_ANON_KEY=settings.supabase_anon_key,
-        SUPABASE_JWT_SECRET=settings.supabase_jwt_secret,
+        SUPABASE_ANON_KEY=_secret_value(settings.supabase_anon_key),
+        SUPABASE_JWT_SECRET=_secret_value(settings.supabase_jwt_secret),
         SUPABASE_JWKS_URL=settings.resolved_jwks_url,
         SUPABASE_JWT_ISSUER=settings.resolved_jwt_issuer,
         SUPABASE_JWT_AUDIENCE=settings.supabase_jwt_audience,
         JWT_LEEWAY_SECONDS=settings.jwt_leeway_seconds,
-        DATABASE_URL=settings.database_url,
+        DATABASE_URL=_secret_value(settings.database_url),
     )
     if config_overrides:
         app.config.update(config_overrides)
 
     logging.basicConfig(level=getattr(logging, app.config["LOG_LEVEL"].upper(), logging.INFO))
     app.extensions["profile_resolver"] = resolve_profile_from_supabase
-
-    # Resolve these once, from trusted server configuration. The verifier only
-    # permits fixed algorithms and never follows token-supplied key URLs.
-    from .auth import JWTVerifier
-
     app.extensions["jwt_verifier"] = JWTVerifier(
         secret=app.config.get("SUPABASE_JWT_SECRET") or None,
         jwks_url=app.config.get("SUPABASE_JWKS_URL") or None,
@@ -105,7 +110,6 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         # The authoritative lock/replay/expiry decision remains inside the
         # transaction RPC; this layer only validates and canonicalizes inputs.
         if request.method == "POST":
-            g = __import__("flask").g
             g.idempotency = build_idempotency_context(request, g.user_id)
 
         return None
