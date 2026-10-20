@@ -156,7 +156,7 @@ SELECT throws_ok(
         closed_by
     ) VALUES (
         (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S1'),
-        'SHIFT_B', current_date, 500, 500, 0, 0,
+        'SHIFT_B', current_date + 1, 500, 500, 0, 0,
         '00000000-0000-0000-0000-000000000001'::uuid
     )
     $$,
@@ -190,7 +190,7 @@ SELECT throws_ok(
         closed_by
     ) VALUES (
         (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S1'),
-        'SHIFT_A', current_date, 500, 400, 50, 0, -- 400 + 50 + 0 != 500!
+        'SHIFT_A', current_date + 2, 500, 400, 50, 0, -- 400 + 50 + 0 != 500!
         '00000000-0000-0000-0000-000000000001'::uuid
     )
     $$,
