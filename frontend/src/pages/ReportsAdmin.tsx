@@ -1,82 +1,13 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Activity, Download, FileBarChart2, FileClock, ShieldCheck, Users, RefreshCw, Search, UserCog } from "lucide-react";
-import { apiGet, apiPost } from "../lib/api";
+import { FileClock, ShieldCheck, Users, RefreshCw, Search, UserCog } from "lucide-react";
+import { apiPost } from "../lib/api";
 import { supabase } from "../lib/supabase";
-import { formatQuantity } from "../lib/domain";
 import { Alert, Badge, Button, Card, DataTable, Field, PageHeader, SearchBox, SectionTitle, SelectField, StatusBadge, TextArea, Toolbar } from "../components/ui";
-import { Row, downloadCsv, displayDate, selectRows, useAsyncData } from "./shared";
+import { Row, displayDate, selectRows, useAsyncData } from "./shared";
+import { ReportsAnalyticsPage } from "./reports/ReportsAnalytics";
 
 export function ReportsPage() {
-  const [tab,setTab]=useState<"stock"|"consumption"|"vendors"|"custody">("stock");
-  const [search,setSearch]=useState("");
-  const state=useAsyncData(async()=>{
-    const [balances,ledger,custody,consumptions,completions,vendors,receipts]=await Promise.all([
-      apiGet<Row[]>("/stock/balances"),
-      apiGet<Row[]>("/stock/ledger?limit=500&offset=0"),
-      apiGet<Row[]>("/stock/worker-custody"),
-      selectRows("material_consumption_records","id,production_completion_id,material_id,theoretical_quantity,posted_ledger_quantity,physically_confirmed_quantity,variance_quantity,variance_status,stock_transaction_id,created_at","created_at",1000),
-      selectRows("production_completions","id,packing_job_id,completion_number,completed_units,completed_by_worker_id,completion_policy,completion_timestamp","completion_timestamp",1000),
-      selectRows("vendors","id,vendor_code,name,is_active","name",500),
-      selectRows("goods_receipts","id,grn_number,vendor_id,invoice_date,received_date,status,posted_at","received_date",500)
-    ]);
-    return {balances,ledger,custody,consumptions,completions,vendors,receipts};
-  },"reports");
-  const {balances=[],ledger=[],custody=[],consumptions=[],completions=[],vendors=[],receipts=[]}=state.data??{};
-  const visibleBalances=useMemo(()=>balances.filter(r=>`${r.materialCode} ${r.materialName} ${r.locationCode} ${r.locationType}`.toLowerCase().includes(search.toLowerCase())),[balances,search]);
-  const varianceRows=consumptions.filter(r=>r.variance_status!=="VERIFIED_ZERO"||r.physically_confirmed_quantity===null).map(r=>{
-    const completion=completions.find(c=>c.id===r.production_completion_id);
-    return {...r,completionNumber:completion?.completion_number??String(r.production_completion_id).slice(0,8),completedUnits:completion?.completed_units,policy:completion?.completion_policy};
-  });
-  const vendorRows=vendors.map(v=>{
-    const grns=receipts.filter(g=>g.vendor_id===v.id);
-    const posted=grns.filter(g=>g.status==="POSTED");
-    return {vendorCode:v.vendor_code,vendorName:v.name,totalReceipts:grns.length,postedReceipts:posted.length,lastReceived:posted.sort((a,b)=>String(b.received_date).localeCompare(String(a.received_date)))[0]?.received_date??null,active:v.is_active};
-  }).filter(r=>`${r.vendorCode} ${r.vendorName}`.toLowerCase().includes(search.toLowerCase()));
-  const reportRows:Record<string,unknown>[] = tab==="stock"?visibleBalances as Record<string,unknown>[]:tab==="consumption"?varianceRows as Record<string,unknown>[]:tab==="vendors"?vendorRows as Record<string,unknown>[]:custody as Record<string,unknown>[];
-  const totalStock=balances.reduce((s,r)=>s+Number(r.onHandQuantity??0),0);
-  const totalAvailable=balances.reduce((s,r)=>s+Number(r.availableQuantity??0),0);
-  const openVariance=consumptions.filter(r=>r.variance_status==="VARIANCE_RECORDED").length;
-  const unverified=consumptions.filter(r=>r.variance_status==="UNVERIFIED").length;
-  const columns:Record<typeof tab,Array<{key:string;label:string;render?:(row:Row)=>React.ReactNode}>>={
-    stock:[
-      {key:"materialName",label:"Material",render:r=><div><strong>{r.materialName}</strong><small>{r.materialCode}</small></div>},
-      {key:"locationCode",label:"Location",render:r=><div><strong>{r.locationCode}</strong><small>{r.locationType?.replaceAll("_"," ")}</small></div>},
-      {key:"onHandQuantity",label:"On hand",render:r=>formatQuantity(r.onHandQuantity)},
-      {key:"reservedQuantity",label:"Reserved",render:r=>formatQuantity(r.reservedQuantity)},
-      {key:"availableQuantity",label:"ATP",render:r=><strong>{formatQuantity(r.availableQuantity)}</strong>},
-      {key:"canonicalUnitCode",label:"Unit"}
-    ],
-    consumption:[
-      {key:"completionNumber",label:"Completion",render:r=><div><strong>{r.completionNumber}</strong><small>{r.completedUnits??"—"} units</small></div>},
-      {key:"material_id",label:"Material",render:r=>String(r.material_id).slice(0,8)},
-      {key:"theoretical_quantity",label:"Theoretical",render:r=>formatQuantity(r.theoretical_quantity)},
-      {key:"physically_confirmed_quantity",label:"Physical",render:r=>r.physically_confirmed_quantity===null?<Badge tone="amber">Unverified</Badge>:formatQuantity(r.physically_confirmed_quantity)},
-      {key:"variance_quantity",label:"Variance",render:r=>r.variance_quantity===null?"—":formatQuantity(r.variance_quantity)},
-      {key:"variance_status",label:"Status",render:r=><StatusBadge status={r.variance_status}/>}
-    ],
-    vendors:[
-      {key:"vendorCode",label:"Vendor",render:r=><div><strong>{r.vendorName}</strong><small>{r.vendorCode}</small></div>},
-      {key:"totalReceipts",label:"GRNs",render:r=>r.totalReceipts},
-      {key:"postedReceipts",label:"Posted",render:r=><span className="success-text">{r.postedReceipts}</span>},
-      {key:"lastReceived",label:"Last receipt",render:r=>displayDate(r.lastReceived)},
-      {key:"active",label:"Status",render:r=><StatusBadge status={r.active?"ACTIVE":"INACTIVE"}/>}
-    ],
-    custody:[
-      {key:"workerName",label:"Worker",render:r=><div><strong>{r.workerName}</strong><small>{r.workerCode}</small></div>},
-      {key:"materialName",label:"Material",render:r=><div><strong>{r.materialName}</strong><small>{r.materialCode}</small></div>},
-      {key:"onHandQuantity",label:"Custody balance",render:r=>formatQuantity(r.onHandQuantity)},
-      {key:"canonicalUnitCode",label:"Unit"},
-      {key:"workerIsActive",label:"Worker status",render:r=><StatusBadge status={r.workerIsActive?"ACTIVE":"INACTIVE"}/>}
-    ]
-  };
-  const title=tab==="stock"?"Stock by location":tab==="consumption"?"Consumption variance audit":tab==="vendors"?"Vendor delivery summary":"Worker consumption audit";
-  const download=()=>downloadCsv(`packwise-${tab}-report.csv`,reportRows);
-  return <div className="page-stack"><PageHeader eyebrow="REPORTING & ANALYTICS" title="Operations reports" description="Live report slices built from the authoritative stock ledger, completed batches and caller-scoped database reads." actions={<><Button variant="secondary" onClick={state.reload}><RefreshCw size={15}/> Refresh</Button><Button onClick={download}><Download size={15}/> Export CSV</Button></>}/>
-    {state.error?<Alert kind="error">{state.error}</Alert>:null}
-    <div className="metric-grid metric-grid-four"><Card className="mini-metric"><div className="mini-metric-icon"><Activity size={17}/></div><span>Tracked inventory</span><strong>{formatQuantity(totalStock)}</strong><small>Across all active leaf locations</small></Card><Card className="mini-metric"><div className="mini-metric-icon green-mini"><FileBarChart2 size={17}/></div><span>Available to promise</span><strong>{formatQuantity(totalAvailable)}</strong><small>After active reservations</small></Card><Card className="mini-metric"><div className="mini-metric-icon amber-mini"><FileClock size={17}/></div><span>Unverified consumption</span><strong>{unverified}</strong><small>Physical count still needed</small></Card><Card className="mini-metric"><div className="mini-metric-icon red-mini"><ShieldCheck size={17}/></div><span>Recorded variances</span><strong>{openVariance}</strong><small>Non-zero physical difference</small></Card></div>
-    <Card padding={false}><div className="panel-tabs">{([{id:"stock",label:"Stock by location",count:balances.length},{id:"consumption",label:"Consumption variance",count:varianceRows.length},{id:"vendors",label:"Vendor quality",count:vendors.length},{id:"custody",label:"Worker custody",count:custody.length}] as Array<{id:typeof tab;label:string;count:number}>).map(x=><button key={x.id} className={tab===x.id?"selected":""} onClick={()=>{setTab(x.id);setSearch("");}}>{x.label} <span>{x.count}</span></button>)}</div><div className="table-toolbar"><Toolbar>{tab!=="vendors"?<SearchBox value={search} onChange={setSearch} placeholder="Filter this report…"/>:<SearchBox value={search} onChange={setSearch} placeholder="Search vendor…"/>}<span className="table-count">{reportRows.length} rows</span></Toolbar></div><DataTable rows={reportRows as Row[]} columns={columns[tab]} rowKey={(r:Row)=>String(r.id??r.materialId??r.vendorCode??`${r.workerId}-${r.materialId}`) } emptyTitle="No report data" emptyDescription="Records will appear here as operational transactions are posted."/></Card>
-    <div className="info-footnote"><FileBarChart2 size={15}/><span>Exports contain the filtered rows displayed above. Variance reports never treat a missing physical count as zero; unverified records remain explicitly unverified.</span></div>
-  </div>;
+  return <ReportsAnalyticsPage />;
 }
 
 export function AdminPage({role,profile}:{role:string;profile:Row}) {
