@@ -13,7 +13,7 @@ def test_api_cors_preflight_allows_configured_frontend_origin(client):
 
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
-    assert "Idempotency-Key" in response.headers["Access-Control-Allow-Headers"]
+    assert "idempotency-key" in response.headers["Access-Control-Allow-Headers"].lower()
 
 
 def test_api_cors_does_not_reflect_unlisted_origin(client):
