@@ -342,7 +342,7 @@ DECLARE
     v_job public.packing_jobs;
     v_response jsonb;
 BEGIN
-    IF v_role NOT IN ('ADMIN', 'STOREKEEPER', 'PLANNER') THEN
+    IF v_role IS NULL OR v_role NOT IN ('ADMIN', 'STOREKEEPER', 'PLANNER') THEN
         RAISE EXCEPTION 'Unauthorized: role cannot issue stock to a worker.' USING ERRCODE = '42501';
     END IF;
     IF p_measurement_method NOT IN ('SCALE_WEIGHED', 'SEALED_BUNDLE', 'MANUALLY_COUNTED') THEN
@@ -465,7 +465,7 @@ DECLARE
     v_job public.packing_jobs;
     v_response jsonb;
 BEGIN
-    IF v_role NOT IN ('ADMIN', 'STOREKEEPER', 'OPERATOR') THEN
+    IF v_role IS NULL OR v_role NOT IN ('ADMIN', 'STOREKEEPER', 'OPERATOR') THEN
         RAISE EXCEPTION 'Unauthorized: role cannot return stock from worker custody.' USING ERRCODE = '42501';
     END IF;
     IF p_measurement_method NOT IN ('SCALE_WEIGHED', 'SEALED_BUNDLE', 'MANUALLY_COUNTED') THEN
@@ -582,7 +582,7 @@ DECLARE
     v_idem jsonb;
     v_response jsonb;
 BEGIN
-    IF v_role NOT IN ('ADMIN', 'STOREKEEPER') THEN
+    IF v_role IS NULL OR v_role NOT IN ('ADMIN', 'STOREKEEPER') THEN
         RAISE EXCEPTION 'Unauthorized: role cannot quarantine stock.' USING ERRCODE = '42501';
     END IF;
     IF p_source_location_id IS NULL THEN
