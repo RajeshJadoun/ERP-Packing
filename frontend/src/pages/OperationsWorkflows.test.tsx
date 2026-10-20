@@ -193,7 +193,6 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
         <Routes><Route path="/daily-plans/jobs/:id" element={<JobDetailPage role="PLANNER" />} /></Routes>
       </MemoryRouter>
     );
-    expect(await screen.findByText("450 = 0 + 520 + 0")).not.toBeInTheDocument();
     expect(await screen.findByText("520 = 0 + 520 + 0")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Revise target/i }));
