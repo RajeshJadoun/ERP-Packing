@@ -139,7 +139,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     if allowed_origins:
         CORS(
             app,
-            resources={r"/api/v1/*": {"origins": allowed_origins}},
+            resources={r"/api/v1/.*": {"origins": allowed_origins}},
             supports_credentials=False,
             allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-ID"],
             expose_headers=["X-Request-ID"],
