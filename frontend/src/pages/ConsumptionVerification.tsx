@@ -25,10 +25,10 @@ export function ConsumptionVerificationPage({ role }: { role: string }) {
     const value = drafts[row.materialId]?.quantity;
     return value !== undefined && value.trim() !== "" && Number.isFinite(Number(value)) && Number(value) >= 0;
   });
-  const setDraft = (materialId: string, patch: Partial<UsageDraft>) => setDrafts(old => ({
-    ...old,
-    [materialId]: { quantity:"", method:"MANUALLY_COUNTED", evidence:"", ...old[materialId], ...patch }
-  }));
+  const setDraft = (materialId: string, patch: Partial<UsageDraft>) => setDrafts(old => {
+    const current = old[materialId] ?? { quantity:"", method:"MANUALLY_COUNTED", evidence:"" };
+    return { ...old, [materialId]: { ...current, ...patch } };
+  });
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true); setMessage(null); setSaved(null);
