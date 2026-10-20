@@ -152,11 +152,13 @@ SELECT throws_ok(
     SET completed_quantity = 600
     WHERE id = '22222222-a001-4000-8000-000000000000'
     $$,
-    'chk_packing_jobs_conservation',
+    '23514',
     'Imbalanced update rejected by chk_packing_jobs_conservation constraint'
 );
 
 -- 9. Test: Revision below completed production must be rejected by RPC
+SELECT set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT throws_ok(
     $$
     SELECT public.rpc_revise_packing_job('22222222-a001-4000-8000-000000000000', 500, 'Invalid reduction below completed')
