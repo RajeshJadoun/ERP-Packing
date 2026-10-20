@@ -3,7 +3,7 @@ from __future__ import annotations
 from flask import Flask, request
 
 from app.errors import ApiError
-from app.idempotency import build_idempotency_context, canonical_request_hash
+from app.idempotency import build_idempotency_context
 
 
 def _request(body: str, *, key: str = "req_01JAZ9PNK2ZV4T6D8X0ABCDEF1", query: str = ""):
