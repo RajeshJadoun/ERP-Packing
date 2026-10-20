@@ -2,7 +2,7 @@ name: Flask Backend Tests
 
 on:
   push:
-    branches: [main, "phase-3/**"]
+    branches: [main, "phase-3/**", "phase-6/**"]
     paths:
       - "backend/**"
       - ".github/workflows/backend-tests.yml"
