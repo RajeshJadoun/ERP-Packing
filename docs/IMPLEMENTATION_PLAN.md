@@ -2,7 +2,7 @@
 
 **Project:** Packing Material Inventory & BOM Management System  
 **Document Version:** 1.17.0  
-**Status:** Phase 7 verified. Phase 8 frontend verified (cloud deployment gated). Phase 9 reporting views, authenticated Flask endpoints, strict parameter validation, responsive analytics UI, and CSV/PDF export verified. Phase 10 automated verification suite completed (101 backend tests, 35 frontend tests, 0 npm audit vulnerabilities, 0 Ruff errors). Phase 11 deployment packaging is in progress on branch `phase-11-production-readiness`: Dockerfiles, local Compose stack, health checks, and container-build CI have been added; cloud deployment and live user smoke tests still require hosting configuration and Supabase Auth provisioning. See `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`.  
+**Status:** Phase 7 verified. Phase 8 frontend verified (live deployment gated). Phase 9 reporting and Phase 10 automated verification completed (101 backend tests, 35 frontend tests, 0 npm audit vulnerabilities, 0 Ruff errors). Phase 11 Docker packaging, Compose validation, and container builds merged to `main`; backend, frontend, database, and container CI passed for the Phase 11 commit. Phase 12 adds deployment environment preflight tooling; public cloud deployment and real-user smoke tests still require a selected hosting target and owner-controlled configuration. See `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md` and `docs/PHASE_12_DEPLOYMENT_PREFLIGHT_PLAN.md`.  
 **Date:** 2026-10-20  
 
 ---
