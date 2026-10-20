@@ -8,7 +8,31 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(20);
+SELECT plan(25);
+
+-- Shared test identity and a baseline material used by unit-conversion tests.
+DO $
+DECLARE
+    v_user uuid := '88888888-8888-8888-8888-888888888888';
+    v_kg uuid;
+    v_category uuid;
+BEGIN
+    INSERT INTO auth.users (id, email)
+    VALUES (v_user, 'phase_2_1_1@packing.test')
+    ON CONFLICT (id) DO NOTHING;
+
+    SELECT id INTO v_kg FROM public.units WHERE code = 'KG' LIMIT 1;
+    SELECT id INTO v_category FROM public.material_categories WHERE code = 'POLY_BAG' LIMIT 1;
+
+    INSERT INTO public.profiles(id, full_name, role, is_active)
+    VALUES (v_user, 'Phase 2.1.1 Admin', 'ADMIN', true)
+    ON CONFLICT (id) DO UPDATE SET role = 'ADMIN', is_active = true;
+
+    INSERT INTO public.materials(id, material_code, name, category_id, canonical_unit_id)
+    VALUES (gen_random_uuid(), 'MAT-HARD-BASE', 'Hardening Baseline Material', v_category, v_kg)
+    ON CONFLICT DO NOTHING;
+END $;
+
 
 -- 1. New authoritative conversion resolver exists.
 SELECT has_function(
@@ -70,7 +94,7 @@ DECLARE
     v_result jsonb;
 BEGIN
     SELECT id INTO v_kg FROM public.units WHERE code = 'KG' LIMIT 1;
-    SELECT id INTO v_material FROM public.materials LIMIT 1;
+    SELECT id INTO v_material FROM public.materials WHERE material_code = 'MAT-HARD-BASE' LIMIT 1;
 
     IF v_material IS NOT NULL THEN
         v_result := public.fn_resolve_material_conversion(v_material, v_kg, v_kg);
