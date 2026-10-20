@@ -2,7 +2,7 @@
 
 **Project:** Packing Material Inventory & BOM Management System  
 **Document Version:** 1.12.0  
-**Status:** Phase 7 source implementation committed; hosted migration verification results are tracked in the Phase 7 implementation report  
+**Status:** Phase 7 implementation committed; hosted Supabase migration and backend/database CI verified. Flask runtime deployment remains a separate step.  
 **Date:** 2026-10-20  
 
 ---
@@ -248,7 +248,7 @@ graph TD
 
 ### Phase 7: Production Completion, Consumption, Variance Engine & Daily Closing
 
-**Status:** Implementation in progress. See `docs/PHASE_7_PRODUCTION_CLOSING_IMPLEMENTATION_REPORT.md` for verified rollout results and any remaining limitations.
+**Status:** Implemented and verified. Backend CI: 90 tests passed and Ruff passed; database CI completed successfully; hosted Supabase migration applied and schema/RPC privileges verified. See `docs/PHASE_7_PRODUCTION_CLOSING_IMPLEMENTATION_REPORT.md`. The Flask runtime has not yet been deployed.
 - **Scope:**
   - Implement Production Output recording service (`POST /api/v1/production/completions`):
     - Records partial or full batch completions (e.g., 530 units packed of 1,000 planned).
