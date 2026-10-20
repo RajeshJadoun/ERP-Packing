@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     def resolved_jwks_url(self) -> str:
         if self.supabase_jwks_url:
             return self.supabase_jwks_url
+        # An explicitly configured legacy HS256 secret should work without an
+        # implicit JWKS fallback. If both are configured explicitly, JWKS wins.
+        if self.supabase_jwt_secret and self.supabase_jwt_secret.get_secret_value():
+            return ""
         if self.supabase_url:
             return f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
         return ""
