@@ -50,6 +50,12 @@ _READ_TABLES = MASTER_TABLES | frozenset(
         "production_completions",
         "material_consumption_records",
         "daily_closings",
+        "vw_stock_by_location",
+        "vw_worker_custody_balance",
+        "vw_material_consumption_variance",
+        "vw_vendor_purchase_history",
+        "vw_production_shift_summary",
+        "vw_worker_production_output",
     }
 )
 
