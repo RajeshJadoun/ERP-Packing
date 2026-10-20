@@ -4,7 +4,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(25);
+SELECT plan(26);
 
 SELECT has_column('public', 'daily_plans', 'status', 'daily plan lifecycle status exists');
 SELECT has_column('public', 'daily_plans', 'released_by', 'daily plan release attribution exists');
