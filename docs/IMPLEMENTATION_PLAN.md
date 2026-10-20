@@ -209,7 +209,7 @@ graph TD
 ---
 
 ### Phase 6: Bill of Materials (BOM) Versioning & Daily Planning Scheduler
-**Implementation status (2026-10-20):** Implemented and CI-verified on PR #5. Backend validation: 78 pytest tests plus Ruff; database validation: 260 pgTAP assertions across 11 suites. The hosted Supabase migration is pending merge and rollout. See [Phase 6 implementation report](PHASE_6_BOM_PLANNING_IMPLEMENTATION_REPORT.md).
+**Implementation status (2026-10-20):** Merged to `main` and applied to the linked Supabase project. Backend validation: 78 pytest tests plus Ruff; database validation: 260 pgTAP assertions across 11 suites. Post-migration verification confirmed all 33 core tables retain RLS, direct writes to BOM/planning/job tables are disabled, and the single-active-BOM index remains present. The Flask server has not been deployed. See [Phase 6 implementation report](PHASE_6_BOM_PLANNING_IMPLEMENTATION_REPORT.md).
 
 - **Scope:**
   - Implement Master BOM creation with `NULLS NOT DISTINCT` uniqueness and single active version enforcement via partial unique index `idx_boms_single_active_version`.
