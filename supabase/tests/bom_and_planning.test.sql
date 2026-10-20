@@ -22,9 +22,11 @@ BEGIN
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'planner@packing.test')
     ON CONFLICT (id) DO NOTHING;
 
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
         ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Test Planner', 'PLANNER', true)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     INSERT INTO public.parties (id, code, name)
     VALUES ('cccccccc-0001-0000-0000-000000000000', 'CUST-TATA', 'Tata Consumer Products')
@@ -117,15 +119,15 @@ INSERT INTO public.packing_jobs (
     original_planned_quantity, current_revised_quantity,
     completed_quantity, pending_quantity, cancelled_quantity, status
 ) VALUES (
-    '22222222-j001-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-TEST-001',
+    '22222222-a001-4000-8000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-TEST-001',
     'cccccccc-0001-0000-0000-000000000000', 'dddddddd-0001-0000-0000-000000000000',
     '11111111-b002-0000-0000-000000000000',
     1000, 1000, 0, 1000, 0, 'RELEASED'
 );
 
 SELECT is(
-    (SELECT current_revised_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
-    (SELECT completed_quantity + pending_quantity + cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT current_revised_quantity FROM public.packing_jobs WHERE id = '22222222-a001-4000-8000-000000000000'),
+    (SELECT completed_quantity + pending_quantity + cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-a001-4000-8000-000000000000'),
     'Conservation check verified at release: 1000 = 0 + 1000 + 0'
 );
 
@@ -135,10 +137,10 @@ SET completed_quantity = 530,
     pending_quantity = 470,
     status = 'PARTIALLY_COMPLETED',
     updated_at = clock_timestamp()
-WHERE id = '22222222-j001-0000-0000-000000000000';
+WHERE id = '22222222-a001-4000-8000-000000000000';
 
 SELECT is(
-    (SELECT pending_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT pending_quantity FROM public.packing_jobs WHERE id = '22222222-a001-4000-8000-000000000000'),
     470,
     'Pending quantity exactly equals 470 after completing 530 units'
 );
@@ -148,7 +150,7 @@ SELECT throws_ok(
     $$
     UPDATE public.packing_jobs
     SET completed_quantity = 600
-    WHERE id = '22222222-j001-0000-0000-000000000000'
+    WHERE id = '22222222-a001-4000-8000-000000000000'
     $$,
     'chk_packing_jobs_conservation',
     'Imbalanced update rejected by chk_packing_jobs_conservation constraint'
@@ -157,7 +159,7 @@ SELECT throws_ok(
 -- 9. Test: Revision below completed production must be rejected by RPC
 SELECT throws_ok(
     $$
-    SELECT public.rpc_revise_packing_job('22222222-j001-0000-0000-000000000000', 500, 'Invalid reduction below completed')
+    SELECT public.rpc_revise_packing_job('22222222-a001-4000-8000-000000000000', 500, 'Invalid reduction below completed')
     $$,
     '23514',
     'Revision procedure rejects revising total planned quantity below completed production (500 < 530)'
@@ -165,19 +167,19 @@ SELECT throws_ok(
 
 -- 10. Test: Cancellation of remaining pending units (470 cancelled, pending=0, completed=530 preserved)
 SELECT is(
-    (SELECT (public.rpc_cancel_packing_job('22222222-j001-0000-0000-000000000000', 'Customer order cancelled'))->>'status'),
+    (SELECT (public.rpc_cancel_packing_job('22222222-a001-4000-8000-000000000000', 'Customer order cancelled'))->>'status'),
     'CANCELLED',
     'Job cancelled successfully via rpc_cancel_packing_job'
 );
 
 SELECT is(
-    (SELECT completed_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT completed_quantity FROM public.packing_jobs WHERE id = '22222222-a001-4000-8000-000000000000'),
     530,
     'Completed production permanently preserved at 530 units after cancellation'
 );
 
 SELECT is(
-    (SELECT cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-j001-0000-0000-000000000000'),
+    (SELECT cancelled_quantity FROM public.packing_jobs WHERE id = '22222222-a001-4000-8000-000000000000'),
     470,
     'Cancelled quantity recorded at 470 units'
 );
@@ -190,14 +192,14 @@ SELECT lives_ok(
         original_planned_quantity, current_revised_quantity,
         completed_quantity, pending_quantity, cancelled_quantity, status
     ) VALUES (
-        '22222222-j002-0000-0000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-CUSTOM-002',
+        '22222222-a002-4000-8000-000000000000', 'ffffffff-0001-0000-0000-000000000000', 'JOB-CUSTOM-002',
         'cccccccc-0001-0000-0000-000000000000', 'dddddddd-0001-0000-0000-000000000000',
         NULL, 200, 200, 0, 200, 0, 'DRAFT'
     );
     INSERT INTO public.packing_job_bom_snapshots (
         id, packing_job_id, source_bom_id, bom_version, is_customized, customization_notes, frozen_by
     ) VALUES (
-        '33333333-s002-0000-0000-000000000000', '22222222-j002-0000-0000-000000000000',
+        '33333333-a002-4000-8000-000000000000', '22222222-a002-4000-8000-000000000000',
         NULL, NULL, true, 'Ad-hoc customized packing specifications', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     );
     $$,
@@ -210,7 +212,7 @@ SELECT throws_ok(
     INSERT INTO public.packing_job_bom_snapshots (
         id, packing_job_id, source_bom_id, bom_version, is_customized, frozen_by
     ) VALUES (
-        '33333333-s003-0000-0000-000000000000', '22222222-j002-0000-0000-000000000000',
+        '33333333-a003-4000-8000-000000000000', '22222222-a002-4000-8000-000000000000',
         NULL, NULL, false, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
     )
     $$,
