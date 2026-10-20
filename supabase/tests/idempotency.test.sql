@@ -142,7 +142,7 @@ SELECT is(
         'POST:/api/v1/stock/transfer',
         'hash_protocol_1',
         '99999999-9999-9999-9999-999999999999'
-    ))->>'action'),
+    )->>'action'),
     'REPLAY',
     'fn_acquire_idempotency returns action=REPLAY for identical completed request'
 );
