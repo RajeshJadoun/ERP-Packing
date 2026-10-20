@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qsl
 
-from flask import Request
+from flask import Request, g
 
 from .errors import ApiError
 
@@ -79,3 +79,14 @@ def build_idempotency_context(request: Request, owner_id: str) -> IdempotencyCon
         operation_scope=scope,
         request_hash=canonical_request_hash(request),
     )
+
+
+def idempotency_rpc_parameters() -> dict[str, str]:
+    """Return the arguments expected by transactional RPC idempotency parameters."""
+    context = getattr(g, "idempotency", None)
+    if context is None:
+        raise ApiError(400, "IDEMPOTENCY_CONTEXT_MISSING", "A validated Idempotency-Key is required.")
+    return {
+        "p_idempotency_key": context.key,
+        "p_request_hash": context.request_hash,
+    }
