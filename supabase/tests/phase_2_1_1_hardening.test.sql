@@ -24,9 +24,13 @@ BEGIN
     SELECT id INTO v_kg FROM public.units WHERE code = 'KG' LIMIT 1;
     SELECT id INTO v_category FROM public.material_categories WHERE code = 'POLY_BAG' LIMIT 1;
 
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles(id, full_name, role, is_active)
     VALUES (v_user, 'Phase 2.1.1 Admin', 'ADMIN', true)
     ON CONFLICT (id) DO UPDATE SET role = 'ADMIN', is_active = true;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     INSERT INTO public.materials(id, material_code, name, category_id, canonical_unit_id)
     VALUES (gen_random_uuid(), 'MAT-HARD-BASE', 'Hardening Baseline Material', v_category, v_kg)
