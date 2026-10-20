@@ -6,7 +6,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(18);
+SELECT plan(26);
 
 SELECT has_column(
     'public', 'stock_transactions', 'measurement_evidence',
@@ -269,6 +269,94 @@ SELECT is(
      WHERE idempotency_key = 'req_phase5_conv_transfer_000001'),
     NULL::text,
     'Unmeasured transfer keeps optional measurement evidence empty'
+);
+
+SELECT throws_ok(
+    $
+    SELECT public.rpc_transfer_stock(
+        'f5000000-0000-4000-8000-000000000010',
+        'f5000000-0000-4000-8000-000000000021',
+        'f5000000-0000-4000-8000-000000000022',
+        1000,
+        (SELECT canonical_unit_id FROM public.materials WHERE id = 'f5000000-0000-4000-8000-000000000010'),
+        'Phase 5 insufficient stock test',
+        'req_phase5_overissue_000001',
+        'phase5-overissue-hash-1'
+    )
+    $,
+    '23514',
+    NULL,
+    'Transfer is rejected when locked source balance is insufficient'
+);
+
+SELECT is(
+    (SELECT on_hand_quantity FROM public.material_location_balances
+     WHERE material_id = 'f5000000-0000-4000-8000-000000000010'
+       AND location_id = 'f5000000-0000-4000-8000-000000000021'),
+    95::numeric,
+    'Rejected over-issue leaves source balance unchanged'
+);
+
+SELECT is(
+    public.rpc_quarantine_stock(
+        'f5000000-0000-4000-8000-000000000010',
+        'f5000000-0000-4000-8000-000000000021',
+        'f5000000-0000-4000-8000-000000000023',
+        10,
+        (SELECT canonical_unit_id FROM public.materials WHERE id = 'f5000000-0000-4000-8000-000000000010'),
+        NULL,
+        NULL,
+        'Phase 5 quarantine test',
+        'req_phase5_quarantine_000001',
+        'phase5-quarantine-hash-1'
+    )->>'movementType',
+    'DAMAGE_QUARANTINE',
+    'Quarantine RPC records a location-to-location damaged-stock movement'
+);
+
+SELECT is(
+    (SELECT on_hand_quantity FROM public.material_location_balances
+     WHERE material_id = 'f5000000-0000-4000-8000-000000000010'
+       AND location_id = 'f5000000-0000-4000-8000-000000000023'),
+    10::numeric,
+    'Quarantined quantity is projected into the quarantine leaf'
+);
+
+SELECT is(
+    (SELECT on_hand_quantity FROM public.material_location_balances
+     WHERE material_id = 'f5000000-0000-4000-8000-000000000010'
+       AND location_id = 'f5000000-0000-4000-8000-000000000021'),
+    85::numeric,
+    'Quarantine move debits usable shelf inventory'
+);
+
+SELECT is(
+    (SELECT sum(on_hand_quantity) FROM public.material_location_balances
+     WHERE material_id = 'f5000000-0000-4000-8000-000000000010'
+       AND location_id IN (
+           'f5000000-0000-4000-8000-000000000021',
+           'f5000000-0000-4000-8000-000000000022',
+           'f5000000-0000-4000-8000-000000000023'
+       )),
+    100::numeric,
+    'Quarantine preserves total physical company stock across all leaf locations'
+);
+
+SELECT throws_ok(
+    $
+    SELECT public.rpc_scrap_disposal(
+        'f5000000-0000-4000-8000-000000000010',
+        'f5000000-0000-4000-8000-000000000023',
+        1,
+        (SELECT canonical_unit_id FROM public.materials WHERE id = 'f5000000-0000-4000-8000-000000000010'),
+        'Disposal role check',
+        'req_phase5_scrap_denied_0001',
+        'phase5-scrap-denied-hash-1'
+    )
+    $,
+    '42501',
+    NULL,
+    'Storekeeper cannot bypass the administrator-only scrap disposal approval'
 );
 
 SELECT ok(
