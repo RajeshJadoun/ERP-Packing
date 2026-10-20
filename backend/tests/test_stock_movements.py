@@ -7,7 +7,6 @@ import pytest
 from app.errors import ApiError
 from app.services.stock_service import issue_to_worker, return_from_worker, transfer_stock
 
-
 TX = "50000000-0000-0000-0000-000000000001"
 MATERIAL = "10000000-0000-0000-0000-000000000001"
 UNIT = "20000000-0000-0000-0000-000000000001"
