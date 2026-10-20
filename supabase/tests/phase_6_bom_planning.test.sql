@@ -4,7 +4,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(26);
+SELECT plan(30);
 
 SELECT has_column('public', 'daily_plans', 'status', 'daily plan lifecycle status exists');
 SELECT has_column('public', 'daily_plans', 'released_by', 'daily plan release attribution exists');
@@ -242,6 +242,60 @@ SELECT is((SELECT coalesce(sum(reserved_quantity), 0) FROM public.stock_reservat
                WHERE daily_plan_id = (SELECT (body->>'id')::uuid FROM phase6_rpc_results WHERE name = 'daily_plan')
            ) AND status = 'ACTIVE'),
           490::numeric, 'Release creates active reservations for all mandatory snapshot lines');
+
+-- Create and activate a later master version after release. The already
+-- released jobs must continue using their frozen version-2 snapshot and factor.
+INSERT INTO phase6_rpc_results(name, body)
+SELECT 'bom_v3',
+       public.rpc_create_bom_version(
+           (body->>'id')::uuid,
+           'Post-release version bump to verify frozen job snapshot',
+           jsonb_build_array(jsonb_build_object(
+               'materialId', 'a6000000-0000-4000-8000-000000000004',
+               'quantityPerUnit', 4,
+               'unitId', (SELECT id FROM public.units WHERE code = 'PCS' LIMIT 1),
+               'isOptional', false
+           )),
+           'req_phase6_create_bom_v3_001',
+           'phase6-create-bom-v3-hash'
+       )
+FROM phase6_rpc_results WHERE name = 'bom_v2';
+
+SELECT is((SELECT (body->>'versionNumber')::integer FROM phase6_rpc_results WHERE name = 'bom_v3'),
+          3, 'Post-release BOM version bump creates version three');
+
+INSERT INTO phase6_rpc_results(name, body)
+SELECT 'activate_v3',
+       public.rpc_activate_bom_version(
+           (body->>'id')::uuid,
+           'req_phase6_activate_bom_v3_001',
+           'phase6-activate-bom-v3-hash'
+       )
+FROM phase6_rpc_results WHERE name = 'bom_v3';
+
+SELECT is((SELECT body->>'status' FROM phase6_rpc_results WHERE name = 'activate_v3'),
+          'ACTIVE', 'Version three becomes the active master BOM');
+
+SELECT is(
+    (SELECT min(s.bom_version)
+     FROM public.packing_jobs pj
+     JOIN public.packing_job_bom_snapshots s ON s.packing_job_id = pj.id
+     WHERE pj.daily_plan_id = (SELECT (body->>'id')::uuid FROM phase6_rpc_results WHERE name = 'daily_plan')
+       AND s.source_bom_id = (SELECT (body->>'id')::uuid FROM phase6_rpc_results WHERE name = 'bom_v2')),
+    2,
+    'Released master-derived jobs retain their version-two snapshot after version three activates'
+);
+
+SELECT is(
+    (SELECT min(sl.canonical_qty_per_unit)
+     FROM public.packing_jobs pj
+     JOIN public.packing_job_bom_snapshots s ON s.packing_job_id = pj.id
+     JOIN public.packing_job_bom_snapshot_lines sl ON sl.snapshot_id = s.id
+     WHERE pj.daily_plan_id = (SELECT (body->>'id')::uuid FROM phase6_rpc_results WHERE name = 'daily_plan')
+       AND s.source_bom_id = (SELECT (body->>'id')::uuid FROM phase6_rpc_results WHERE name = 'bom_v2')),
+    3::numeric,
+    'Frozen version-two consumption factors do not change after a new master version'
+);
 
 -- A planned job reduction must retain completed output and maintain the
 -- five-variable conservation identity.
