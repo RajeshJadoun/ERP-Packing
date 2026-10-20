@@ -230,3 +230,93 @@ REVOKE ALL ON FUNCTION public.rpc_create_purchase_order(text, uuid, date, date, 
     FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rpc_create_purchase_order(text, uuid, date, date, text, jsonb, text, text)
     TO authenticated;
+
+
+-- GRN header readiness gate. This is intentionally a trigger-level invariant,
+-- not just Flask validation: every inbound receipt (including a draft created
+-- through PostgREST) must reference a real active vendor and receiving location.
+CREATE OR REPLACE FUNCTION public.trg_validate_goods_receipt_header_phase4()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+    v_vendor_active boolean;
+    v_location record;
+    v_po_vendor_id uuid;
+BEGIN
+    IF NEW.invoice_date > NEW.received_date THEN
+        RAISE EXCEPTION 'Invoice date cannot be later than the goods receipt date.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF NEW.received_date > CURRENT_DATE THEN
+        RAISE EXCEPTION 'Goods receipt date cannot be in the future.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    SELECT is_active
+    INTO v_vendor_active
+    FROM public.vendors
+    WHERE id = NEW.vendor_id;
+
+    IF NOT FOUND OR v_vendor_active IS DISTINCT FROM true THEN
+        RAISE EXCEPTION 'Goods receipt vendor does not exist or is inactive.'
+            USING ERRCODE = '23503';
+    END IF;
+
+    SELECT is_active, is_leaf, location_type
+    INTO v_location
+    FROM public.locations
+    WHERE id = NEW.destination_location_id;
+
+    IF NOT FOUND
+       OR v_location.is_active IS DISTINCT FROM true
+       OR v_location.is_leaf IS DISTINCT FROM true
+       OR v_location.location_type NOT IN ('RECEIVING_BAY', 'STORE_SHELF') THEN
+        RAISE EXCEPTION 'Goods receipt destination must be an active leaf receiving bay or store shelf.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF NEW.po_id IS NOT NULL THEN
+        SELECT vendor_id
+        INTO v_po_vendor_id
+        FROM public.purchase_orders
+        WHERE id = NEW.po_id;
+
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Goods receipt purchase order does not exist.'
+                USING ERRCODE = '23503';
+        END IF;
+
+        IF v_po_vendor_id IS DISTINCT FROM NEW.vendor_id THEN
+            RAISE EXCEPTION 'Goods receipt vendor must match the linked purchase order vendor.'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+
+    -- Direct PostgREST writes may stage DRAFT headers, but only the authorized
+    -- transactional RPC may transition a draft to POSTED.
+    IF TG_OP = 'INSERT' AND NEW.status IS DISTINCT FROM 'DRAFT' THEN
+        RAISE EXCEPTION 'Goods receipts must be created in DRAFT status and posted through the transactional API.'
+            USING ERRCODE = '42501';
+    END IF;
+
+    IF NEW.status = 'POSTED' AND (NEW.posted_at IS NULL OR NEW.posted_by IS NULL) THEN
+        RAISE EXCEPTION 'A posted goods receipt requires posted_at and posted_by.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.trg_validate_goods_receipt_header_phase4()
+    FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_validate_goods_receipt_header_phase4 ON public.goods_receipts;
+CREATE TRIGGER trg_validate_goods_receipt_header_phase4
+BEFORE INSERT OR UPDATE ON public.goods_receipts
+FOR EACH ROW
+EXECUTE FUNCTION public.trg_validate_goods_receipt_header_phase4();
