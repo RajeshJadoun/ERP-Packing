@@ -272,7 +272,7 @@ SELECT is(
 );
 
 SELECT throws_ok(
-    $
+    $$
     SELECT public.rpc_transfer_stock(
         'f5000000-0000-4000-8000-000000000010',
         'f5000000-0000-4000-8000-000000000021',
@@ -343,7 +343,7 @@ SELECT is(
 );
 
 SELECT throws_ok(
-    $
+    $$
     SELECT public.rpc_scrap_disposal(
         'f5000000-0000-4000-8000-000000000010',
         'f5000000-0000-4000-8000-000000000023',
