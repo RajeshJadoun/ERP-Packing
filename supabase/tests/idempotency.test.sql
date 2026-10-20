@@ -33,7 +33,7 @@ SELECT throws_ok(
         'POST:/api/v1/goods-receipts/post', 'hash_test', 'PROCESSING'
     )
     $$,
-    'chk_idempotency_key_format',
+    '23514',
     'Idempotency key under 16 characters rejected by chk_idempotency_key_format'
 );
 
@@ -47,7 +47,7 @@ SELECT throws_ok(
         'POST:/api/v1/goods-receipts/post', 'hash_test', 'PROCESSING'
     )
     $$,
-    'chk_idempotency_key_format',
+    '23514',
     'Idempotency key containing spaces rejected by regex check'
 );
 
@@ -76,7 +76,7 @@ SELECT throws_ok(
         'UNAPPROVED_RESOURCE_TYPE'
     )
     $$,
-    'chk_idempotency_keys_resource_type',
+    '23514',
     'Unapproved resource_type rejected by chk_idempotency_keys_resource_type constraint'
 );
 
@@ -173,7 +173,7 @@ SELECT is(
         'POST:/api/v1/stock/transfer',
         'hash_protocol_1',
         '99999999-9999-9999-9999-999999999999'
-    ))->>'action'),
+    )->>'action'),
     'EXPIRED',
     'fn_acquire_idempotency returns action=EXPIRED with resource reference when cache has expired'
 );
