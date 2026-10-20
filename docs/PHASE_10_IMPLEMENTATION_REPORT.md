@@ -31,7 +31,7 @@ Phase 8 established the React 19 + Vite + TypeScript frontend SPA. Below is the 
 |---|---|---|---|
 | **1. Frontend Deployment** | Deploy React/Vite SPA to intended hosting provider. | No production hosting provider (Vercel, Cloudflare, S3) credentials or target configuration are configured in the repository. Production bundle (`dist/`) builds cleanly with zero errors. | **BLOCKED (Environment Dependency)** |
 | **2. Flask API Deployment** | Deploy Flask API to intended cloud container host. | No cloud hosting credentials (Google Cloud Run, AWS ECS, Render) or deployment keys exist in the repository. Dockerfile and application factory are production-ready. | **BLOCKED (Environment Dependency)** |
-| **3. Real Supabase Auth** | Verify sign-in with real `auth.users` account mapped to `public.profiles`. | The linked Supabase project `bkyzwdaazscsiocmefbn` has 33 tables and 6 views, but currently contains 0 `auth.users` and 0 `public.profiles`. Local test fixtures verify the complete authentication lifecycle. | **BLOCKED (Environment Dependency)** |
+| **3. Real Supabase Auth** | Verify sign-in with real `auth.users` account mapped to `public.profiles`. | Initial administrator account (`admin@packing-erp.local`) provisioned in `auth.users` with confirmed email. Trigger `trg_protect_profile_role` and `handle_new_user` verified. Profile set to `ADMIN` and active. Real sign-in generates valid JWT. | **VERIFIED (Live Cloud Verified)** |
 | **4. Real JWT Integration** | Verify Bearer token transmission and verification against JWKS/secret. | JWT verification is fully verified using `JWTVerifier` supporting RS256/ES256 JWKS and HS256 secret. Expired, tampered, and malformed tokens are rejected with HTTP 401. Tested in `test_auth.py` and `test_phase10_e2e_verification.py`. | **VERIFIED** |
 | **5. Role & RLS Matrix** | Enforce permissions for ADMIN, STOREKEEPER, PLANNER, OPERATOR, VIEWER. | Verified across pgTAP suites (`security_rls.test.sql`) and backend test suites. Non-admin role elevation is blocked by `trg_protect_profile_role` (SQLSTATE 42501). Direct PostgREST writes to stock tables are denied by RLS. | **VERIFIED** |
 | **6. Browser-to-Backend Smoke Test** | Full path: UI login → Profile role → Flask `/health` → safe read/write. | Tested across MSW in Vitest (35 tests) and Flask Client in Pytest (101 tests). Health endpoint returns `HEALTHY`. Cross-service live cloud smoke test is pending hosting infrastructure. | **VERIFIED (Mock/Local) / BLOCKED (Cloud)** |
@@ -214,11 +214,10 @@ Outcome: found 0 vulnerabilities (100% PASS)
 1. **SC-18: Cloud Deployment Smoke Test:**
    - *Reason:* No cloud hosting provider credentials (Vercel, Cloud Run, Render) or deployment tokens are configured in the current repository environment.
    - *Resolution:* When hosting accounts are provisioned, configure deployment secrets in GitHub Actions and execute deployment workflows.
-2. **Live Supabase Auth Users:**
-   - *Reason:* Supabase cloud project `bkyzwdaazscsiocmefbn` has 0 users in `auth.users` and 0 profiles in `public.profiles`.
-   - *Resolution:* Execute the SQL bootstrap script in `docs/SYSTEM_WALKTHROUGH.md` (Section 4) via the Supabase SQL Editor to seed the initial `ADMIN`, `STOREKEEPER`, `PLANNER`, `OPERATOR`, and `VIEWER` accounts.
+
+*(Note: Live Supabase Auth User Provisioning has been resolved; `admin@packing-erp.local` is provisioned and verified in `bkyzwdaazscsiocmefbn`)*
 
 ### Recommended Next Action:
 1. Review the committed changes on branch `main`.
-2. Seed initial test users in the linked Supabase project using the documented SQL runbook.
+2. Push commits `fea9bc8` and `92071d4` to `origin/main` using GitHub Desktop or `git push origin main`.
 3. Configure cloud hosting credentials for the frontend SPA and Flask API to perform the final public smoke test.
