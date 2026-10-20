@@ -1,6 +1,6 @@
 # Phase 6 BOM & Planning Implementation Report
 
-**Status:** Implemented on `phase-6/bom-planning`; local CI validation passed. The hosted Supabase migration has not yet been applied.
+**Status:** Merged to `main`, applied to the linked Supabase project, and post-migration verified.
 **Date:** 2026-10-20
 
 - Repository: [RajeshJadoun/ERP-Packing](https://github.com/RajeshJadoun/ERP-Packing)
@@ -44,8 +44,17 @@ Migration: `supabase/migrations/20261020080000_phase_6_bom_planning.sql`
 
 New test suite: `supabase/tests/phase_6_bom_planning.test.sql`
 
-The clean local database test workflow applied this migration and passed all 11 pgTAP test files (260 assertions), including BOM activation/supersession, multi-job plan creation, custom recipes, reservations, job quantity conservation, and proof that activating a later BOM version does not rewrite a released job's frozen snapshot.
+The clean local database test workflow applied this migration and passed all 11 pgTAP test files (260 assertions), including BOM activation/supersession, multi-job plan creation, custom recipes, reservations, job quantity conservation, and proof that activating a later BOM version does not rewrite a released job's frozen snapshot. The same tested migration was then applied to the linked hosted Supabase project and recorded as `phase_6_bom_planning`.
 
-## Rollout boundary
+## Post-migration verification
 
-CI validates a fresh local Supabase database. It does **not** mean the linked hosted project or backend deployment has been changed. Merge this PR first, then apply the tested migration to the linked Supabase project and run post-migration checks before treating Phase 6 as live.
+The linked Supabase project records migration `phase_6_bom_planning` (version `20261020124710`). Read-only verification returned:
+
+- Four Phase 6 lifecycle columns on `daily_plans`.
+- Nine expected Phase 6 RPC/helper functions present.
+- Zero direct `INSERT` / `UPDATE` / `DELETE` policies left on `boms`, `bom_lines`, `daily_plans`, and `packing_jobs`.
+- RLS enabled on all 33 core public tables.
+- Existing `idx_boms_single_active_version` index present.
+- `authenticated` can call the approved BOM-create and plan-release RPCs, but cannot execute the private BOM JSON helper.
+
+**Deployment boundary:** This phase's database migration is applied. The Flask server itself has not been deployed or configured with runtime secrets; no claim is made that the operational HTTP routes are live on a public URL.
