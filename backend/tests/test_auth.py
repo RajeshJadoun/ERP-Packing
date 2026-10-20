@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
-import jwt
-
 
 def test_valid_bearer_token_is_accepted(client, token_factory):
     token = token_factory()
