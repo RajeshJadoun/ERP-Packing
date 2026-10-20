@@ -15,7 +15,8 @@ describe("shared ERP UI components", () => {
     expect(screen.getByText("MAT-01")).toBeInTheDocument();
     expect(screen.getByText("Poly bag")).toBeInTheDocument();
 
-    rerender(<DataTable rows={[]} columns={columns} rowKey={(row) => row.id} emptyTitle="No materials" emptyDescription="Add one to begin." />);
+    const emptyRows: Array<{ id: string; code: string; name: string }> = [];
+    rerender(<DataTable rows={emptyRows} columns={columns} rowKey={(row: { id: string }) => row.id} emptyTitle="No materials" emptyDescription="Add one to begin." />);
     expect(screen.getByText("No materials")).toBeInTheDocument();
   });
 

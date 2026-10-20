@@ -32,6 +32,7 @@ export function StockPage() {
       const unit=units.find((item)=>item.id===row.canonicalUnitId);
       return {
         ...row,
+        id: row.id,
         materialName:material?.name??String(row.materialId??"").slice(0,8),
         materialCode:material?.material_code??"",
         sourceLocationCode:source?.location_code??null,
