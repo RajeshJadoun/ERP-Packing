@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = Field(default=5000, ge=1, le=65535)
     log_level: str = "INFO"
+    cors_allowed_origins: str = "http://localhost:5173"
     healthcheck_timeout_seconds: float = Field(default=2.0, gt=0, le=15)
+    supabase_rpc_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
 
     supabase_url: str = ""
     supabase_anon_key: SecretStr | None = None
@@ -30,7 +32,6 @@ class Settings(BaseSettings):
 
     database_url: SecretStr | None = None
 
-    idempotency_response_retention_days: int = Field(default=7, ge=1, le=90)
     idempotency_pruner_interval_seconds: int = Field(default=300, ge=60, le=86400)
 
     @property
