@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from flask import g
 
 from app.errors import ApiError
 from app.services.stock_service import issue_to_worker, return_from_worker, transfer_stock
