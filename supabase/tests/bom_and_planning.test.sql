@@ -67,6 +67,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Second active BOM rejected by idx_boms_single_active_version (duplicate active version)'
 );
 
@@ -106,6 +107,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Second active generic BOM with NULL party_id rejected (NULLS NOT DISTINCT treated equal)'
 );
 
@@ -153,6 +155,7 @@ SELECT throws_ok(
     WHERE id = '22222222-a001-4000-8000-000000000000'
     $$,
     '23514',
+    NULL,
     'Imbalanced update rejected by chk_packing_jobs_conservation constraint'
 );
 
@@ -164,6 +167,7 @@ SELECT throws_ok(
     SELECT public.rpc_revise_packing_job('22222222-a001-4000-8000-000000000000', 500, 'Invalid reduction below completed')
     $$,
     '23514',
+    NULL,
     'Revision procedure rejects revising total planned quantity below completed production (500 < 530)'
 );
 
@@ -219,6 +223,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Snapshot with is_customized=false and NULL source_bom_id rejected by check constraint'
 );
 
