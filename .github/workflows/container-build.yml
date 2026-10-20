@@ -1,0 +1,68 @@
+name: Container Build Validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - ".github/workflows/container-build.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - ".github/workflows/container-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Prepare placeholder local environment files
+        run: |
+          cp .env.example .env
+          cp backend/.env.example backend/.env
+      - name: Validate Docker Compose configuration
+        run: docker compose config --quiet
+
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Flask API image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: false
+          tags: packing-erp-backend:ci
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build React/Nginx image (no push, placeholder public config)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: false
+          tags: packing-erp-frontend:ci
+          build-args: |
+            VITE_SUPABASE_URL=https://setup-required.supabase.co
+            VITE_SUPABASE_ANON_KEY=setup-required-anon-key
+            VITE_API_BASE_URL=http://localhost:5000/api/v1
