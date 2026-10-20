@@ -181,6 +181,17 @@ SELECT lives_ok(
     'Shift closing with matching composite key (daily_plan_id, shift_code) succeeds'
 );
 
+-- Use a different plan so UNIQUE(daily_plan_id) does not mask the conservation check.
+INSERT INTO public.daily_plans (
+    id, plan_number, plan_date, shift_code, created_by
+) VALUES (
+    '00000000-0000-0000-0000-000000000002',
+    'PLAN-2026-1019-S2',
+    current_date + 1,
+    'SHIFT_A',
+    '00000000-0000-0000-0000-000000000001'::uuid
+);
+
 -- 9. Shift closing conservation constraint chk_daily_closing_conservation rejects conservation violation
 SELECT throws_ok(
     $$
@@ -189,7 +200,7 @@ SELECT throws_ok(
         total_completed_units, total_pending_units, total_cancelled_units,
         closed_by
     ) VALUES (
-        (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S1'),
+        (SELECT id FROM public.daily_plans WHERE plan_number = 'PLAN-2026-1019-S2'),
         'SHIFT_A', current_date + 2, 500, 400, 50, 0, -- 400 + 50 + 0 != 500!
         '00000000-0000-0000-0000-000000000001'::uuid
     )
