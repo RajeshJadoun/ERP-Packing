@@ -17,7 +17,32 @@ export function StockPage() {
   const [toDate,setToDate] = useState("");
   const [refreshKey,setRefreshKey]=useState(0);
   const loadBalances=()=>apiGet<Balance[]>("/stock/balances");
-  const loadLedger=()=>apiGet<Row[]>(`/stock/ledger?limit=200&offset=0${materialFilter? `&materialId=${encodeURIComponent(materialFilter)}`:""}${fromDate?`&fromDate=${fromDate}`:""}${toDate?`&toDate=${toDate}`:""}`);
+  const loadLedger=async()=>{
+    const path=`/stock/ledger?limit=200&offset=0${materialFilter? `&materialId=${encodeURIComponent(materialFilter)}`:""}${fromDate?`&fromDate=${fromDate}`:""}${toDate?`&toDate=${toDate}`:""}`;
+    const [ledgerRows,materials,locations,units]=await Promise.all([
+      apiGet<Row[]>(path),
+      selectRows("materials","id,material_code,name,canonical_unit_id","name",1000),
+      selectRows("locations","id,location_code,name,location_type","location_code",1000),
+      selectRows("units","id,code","code",250)
+    ]);
+    return ledgerRows.map((row)=>{
+      const material=materials.find((item)=>item.id===row.materialId);
+      const source=locations.find((item)=>item.id===row.sourceLocationId);
+      const destination=locations.find((item)=>item.id===row.destinationLocationId);
+      const unit=units.find((item)=>item.id===row.canonicalUnitId);
+      return {
+        ...row,
+        materialName:material?.name??String(row.materialId??"").slice(0,8),
+        materialCode:material?.material_code??"",
+        sourceLocationCode:source?.location_code??null,
+        sourceLocationName:source?.name??null,
+        destinationLocationCode:destination?.location_code??null,
+        destinationLocationName:destination?.name??null,
+        canonicalUnitCode:unit?.code??"",
+        isEstimated:row.isEstimated??(row.movementType==="CONSUMPTION"&&row.measurementMethod==="AUTO_BOM_BACKFLUSH")
+      };
+    });
+  };
   const balancesState=useAsyncData(loadBalances,String(refreshKey));
   const ledgerState=useAsyncData(loadLedger,`${refreshKey}|${materialFilter}|${fromDate}|${toDate}`);
   const balances=balancesState.data??[];
