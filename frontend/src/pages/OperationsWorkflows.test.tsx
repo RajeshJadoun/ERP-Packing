@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -622,7 +622,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.type(screen.getByLabelText(/Material name/), "Poly bag 80 gauge");
     await user.selectOptions(screen.getByLabelText(/Category/), categoryId);
     await user.selectOptions(screen.getByLabelText(/Canonical unit/), unitId);
-    await user.type(screen.getByLabelText(/Dynamic specifications/), '{"gauge":80,"widthMm":200}');
+    fireEvent.change(screen.getByLabelText(/Dynamic specifications/), { target: { value: '{"gauge":80,"widthMm":200}' } });
     await user.click(screen.getByRole("button", { name: "Create record" }));
 
     expect(await screen.findByText("Record created.")).toBeInTheDocument();
