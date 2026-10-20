@@ -19,8 +19,8 @@ from .routes.boms import boms_bp
 from .routes.closing import closing_bp
 from .routes.planning import planning_bp
 from .routes.production import production_bp
-from .routes.reports import reports_bp
 from .routes.purchasing import purchasing_bp
+from .routes.reports import reports_bp
 from .routes.stock import stock_bp
 
 
