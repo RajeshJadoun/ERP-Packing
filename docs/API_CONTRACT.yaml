@@ -4,7 +4,7 @@ info:
   description: |
     Production-grade API specification for critical transactional business operations,
     stock invariant enforcement, BOM versioning, worker custody tracking, and daily closing.
-    Updated through Phase 1.10 with exact protected operation counts (32 protected, 1 unauthenticated),
+    Updated through Phase 1.10 with exact protected operation counts (33 protected, 1 unauthenticated),
     camelCase resourceReference in HTTP 410 expired responses (resourceType, resourceId, operationCompletedAt),
     removal of invented surrogate idempotencyKeyId from response schemas, complete 10/10 resource recovery
     mapping, 100% mandatory Idempotency-Key enforcement on all 20 POST commands, and strict separation between
@@ -686,6 +686,31 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
 
+  /stock/worker-custody:
+    get:
+      operationId: getWorkerCustody
+      summary: Summarize material held in worker custody
+      description: Returns canonical-unit stock at each worker's assigned WORKER_CUSTODY leaf location, with reservation and availability totals.
+      parameters:
+        - name: workerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Worker-by-material custody summary
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkerCustodyItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+
   /stock/ledger:
     get:
       operationId: getStockLedger
@@ -1118,7 +1143,7 @@ components:
         The verified `sub` claim (auth.uid()) is used exclusively to derive the actor identity and is never
         accepted from request body or header parameters. Tokens are forwarded server-side to the PostgreSQL
         RPC layer where `get_current_user_role()` resolves the caller's application role under an empty
-        search path. The API comprises 33 operations (20 POST commands, 13 GET queries). Exactly 32 operations
+        search path. The API comprises 34 operations (20 POST commands, 14 GET queries). Exactly 33 operations
         are protected and require a valid Bearer token; GET /health is explicitly unauthenticated (security: []).
 
   parameters:
@@ -1715,6 +1740,14 @@ components:
         onHandQuantity:
           type: number
           example: 1500.0
+        reservedQuantity:
+          type: number
+          description: Sum of active reservation quantities for this material and leaf location.
+          example: 250.0
+        availableQuantity:
+          type: number
+          description: Usable quantity after active reservations; always zero for DAMAGE_QUARANTINE locations.
+          example: 1250.0
         canonicalUnitCode:
           type: string
           example: "PCS"
@@ -1724,6 +1757,48 @@ components:
         secondaryUnitCode:
           type: string
           nullable: true
+
+    WorkerCustodyItem:
+      type: object
+      required:
+        - workerId
+        - workerCode
+        - workerName
+        - locationId
+        - materialId
+        - materialCode
+        - onHandQuantity
+        - reservedQuantity
+        - availableQuantity
+        - canonicalUnitCode
+      properties:
+        workerId:
+          type: string
+          format: uuid
+        workerCode:
+          type: string
+        workerName:
+          type: string
+        workerIsActive:
+          type: boolean
+        locationId:
+          type: string
+          format: uuid
+        materialId:
+          type: string
+          format: uuid
+        materialCode:
+          type: string
+        materialName:
+          type: string
+        onHandQuantity:
+          type: number
+        reservedQuantity:
+          type: number
+        availableQuantity:
+          type: number
+        canonicalUnitCode:
+          type: string
 
     PurchaseReturnRequest:
       type: object
@@ -1789,6 +1864,7 @@ components:
         - unitId
         - sourceLocationId
         - destinationLocationId
+        - jobId
         - measurementMethod
       properties:
         workerId:
@@ -1797,7 +1873,6 @@ components:
         jobId:
           type: string
           format: uuid
-          nullable: true
         materialId:
           type: string
           format: uuid
@@ -1826,6 +1901,7 @@ components:
       type: object
       required:
         - workerId
+        - jobId
         - materialId
         - quantity
         - unitId
@@ -1834,6 +1910,9 @@ components:
         - measurementMethod
       properties:
         workerId:
+          type: string
+          format: uuid
+        jobId:
           type: string
           format: uuid
         materialId:
@@ -1856,6 +1935,9 @@ components:
           type: string
           enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
           example: "MANUALLY_COUNTED"
+        measurementEvidence:
+          type: string
+          example: "Unused materials counted in one sealed bundle"
 
     StockTransferRequest:
       type: object
@@ -2027,6 +2109,11 @@ components:
           enum: [MULTIPLY, DIVIDE, NONE]
         measurementMethod:
           type: string
+          enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED, AUTO_BOM_BACKFLUSH, INSPECTION_AUDIT]
+        measurementEvidence:
+          type: string
+          nullable: true
+          description: Physical evidence for manual count, sealed bundle, or inspection movements.
         goodsReceiptId:
           type: string
           format: uuid
