@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from flask import Flask, current_app, g, jsonify
@@ -30,7 +30,7 @@ def error_payload(code: str, message: str, extra: dict[str, Any] | None = None) 
         "code": code,
         "message": message,
         "requestId": getattr(g, "request_id", "req_unavailable"),
-        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
     }
     if extra:
         error.update(extra)
