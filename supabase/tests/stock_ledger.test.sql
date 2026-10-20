@@ -27,13 +27,15 @@ BEGIN
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'storekeeper@packing.test')
     ON CONFLICT (id) DO NOTHING;
 
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles (id, full_name, role, is_active) VALUES 
         ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Test Storekeeper', 'STOREKEEPER', true)
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, is_active = EXCLUDED.is_active;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     -- Material
     INSERT INTO public.materials (id, material_code, name, category_id, canonical_unit_id)
-    VALUES ('mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm', 'MAT-LEDGER-001', 'LDPE Liner Bag', v_cat_id, v_unit_kg_id)
+    VALUES ('aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'MAT-LEDGER-001', 'LDPE Liner Bag', v_cat_id, v_unit_kg_id)
     ON CONFLICT (id) DO NOTHING;
 
     -- Locations: Parent (not leaf), Shelf (leaf), Buffer (leaf), Quarantine (leaf), Worker Custody (leaf)
@@ -51,7 +53,7 @@ BEGIN
 
     -- Worker
     INSERT INTO public.workers (id, worker_code, name, assigned_location_id)
-    VALUES ('wwwwwwww-wwww-wwww-wwww-wwwwwwwwwwww', 'WRK-OP-01', 'Ramesh Patel', '11111111-0004-0000-0000-000000000000')
+    VALUES ('aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'WRK-OP-01', 'Ramesh Patel', '11111111-0004-0000-0000-000000000000')
     ON CONFLICT (id) DO NOTHING;
 END $$;
 
@@ -63,7 +65,7 @@ SELECT throws_ok(
         movement_type, source_location_id, destination_location_id, quantity, unit_id,
         entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
     ) VALUES (
-        'TXN-TEST-PARENT', 'test_key_0000000000000001', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+        'TXN-TEST-PARENT', 'test_key_0000000000000001', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'LOCATION_TRANSFER', '11111111-0000-0000-0000-000000000000', '11111111-0001-0000-0000-000000000000',
         10.0, (SELECT id FROM public.units WHERE code = 'KG'), 10.0, (SELECT id FROM public.units WHERE code = 'KG'),
         'SCALE_WEIGHED', 'Parent transfer attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -81,7 +83,7 @@ SELECT throws_ok(
         movement_type, source_location_id, destination_location_id, quantity, unit_id,
         entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
     ) VALUES (
-        'TXN-TEST-SELF', 'test_key_0000000000000002', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+        'TXN-TEST-SELF', 'test_key_0000000000000002', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'LOCATION_TRANSFER', '11111111-0001-0000-0000-000000000000', '11111111-0001-0000-0000-000000000000',
         10.0, (SELECT id FROM public.units WHERE code = 'KG'), 10.0, (SELECT id FROM public.units WHERE code = 'KG'),
         'SCALE_WEIGHED', 'Self transfer attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -99,7 +101,7 @@ SELECT throws_ok(
         movement_type, source_location_id, destination_location_id, quantity, unit_id,
         entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
     ) VALUES (
-        'TXN-TEST-QUAR-NULL', 'test_key_0000000000000003', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+        'TXN-TEST-QUAR-NULL', 'test_key_0000000000000003', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'DAMAGE_QUARANTINE', NULL, '11111111-0003-0000-0000-000000000000',
         10.0, (SELECT id FROM public.units WHERE code = 'KG'), 10.0, (SELECT id FROM public.units WHERE code = 'KG'),
         'INSPECTION_AUDIT', 'Null source quarantine attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -117,7 +119,7 @@ SELECT throws_ok(
         movement_type, source_location_id, destination_location_id, quantity, unit_id,
         entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
     ) VALUES (
-        'TXN-TEST-WRONG-UNIT', 'test_key_0000000000000004', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+        'TXN-TEST-WRONG-UNIT', 'test_key_0000000000000004', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'LOCATION_TRANSFER', '11111111-0001-0000-0000-000000000000', '11111111-0002-0000-0000-000000000000',
         10.0, (SELECT id FROM public.units WHERE code = 'PCS'), 10.0, (SELECT id FROM public.units WHERE code = 'PCS'),
         'SCALE_WEIGHED', 'Wrong unit attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -134,7 +136,7 @@ VALUES ('test_key_0000000000000005', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'PO
 INSERT INTO public.stock_adjustments (
     id, adjustment_number, material_id, location_id, counted_quantity, book_quantity, difference_quantity, reason, approved_by
 ) VALUES (
-    'aaaaaaaa-0001-0000-0000-000000000000', 'ADJ-001', 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+    'aaaaaaaa-0001-0000-0000-000000000000', 'ADJ-001', 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '11111111-0001-0000-0000-000000000000', 1000.0, 0, 1000.0, 'Initial plant setup', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 );
 
@@ -143,7 +145,7 @@ INSERT INTO public.stock_transactions (
     movement_type, source_location_id, destination_location_id, quantity, unit_id,
     entered_quantity, entered_unit_id, measurement_method, movement_reason, stock_adjustment_id, created_by
 ) VALUES (
-    'TXN-SETUP-001', 'test_key_0000000000000005', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+    'TXN-SETUP-001', 'test_key_0000000000000005', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'STOCK_ADJUSTMENT', NULL, '11111111-0001-0000-0000-000000000000',
     1000.0, (SELECT id FROM public.units WHERE code = 'KG'), 1000.0, (SELECT id FROM public.units WHERE code = 'KG'),
     'INSPECTION_AUDIT', 'Initial plant setup', 'aaaaaaaa-0001-0000-0000-000000000000', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -152,7 +154,7 @@ INSERT INTO public.stock_transactions (
 -- Verify shelf projection balance
 SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0001-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0001-0000-0000-000000000000'),
     1000.0,
     'Shelf balance projected synchronously to 1000.0 KG'
 );
@@ -166,7 +168,7 @@ INSERT INTO public.stock_transactions (
     movement_type, source_location_id, destination_location_id, quantity, unit_id,
     entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
 ) VALUES (
-    'TXN-TRANS-001', 'test_key_0000000000000006', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+    'TXN-TRANS-001', 'test_key_0000000000000006', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'LOCATION_TRANSFER', '11111111-0001-0000-0000-000000000000', '11111111-0002-0000-0000-000000000000',
     300.0, (SELECT id FROM public.units WHERE code = 'KG'), 300.0, (SELECT id FROM public.units WHERE code = 'KG'),
     'SCALE_WEIGHED', 'Transfer to Line 1 buffer', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -174,21 +176,21 @@ INSERT INTO public.stock_transactions (
 
 SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0001-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0001-0000-0000-000000000000'),
     700.0,
     'Shelf balance reduced to 700.0 KG after transfer'
 );
 
 SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0002-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0002-0000-0000-000000000000'),
     300.0,
     'Buffer balance increased to 300.0 KG after transfer'
 );
 
 -- Total physical inventory across plant remains 1000.0 KG
 SELECT is(
-    (SELECT sum(on_hand_quantity)::numeric FROM public.material_location_balances WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm'),
+    (SELECT sum(on_hand_quantity)::numeric FROM public.material_location_balances WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
     1000.0,
     'Total physical inventory conserved at 1000.0 KG across plant'
 );
@@ -202,7 +204,7 @@ INSERT INTO public.stock_transactions (
     movement_type, source_location_id, destination_location_id, quantity, unit_id,
     entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
 ) VALUES (
-    'TXN-QUAR-001', 'test_key_0000000000000007', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+    'TXN-QUAR-001', 'test_key_0000000000000007', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'DAMAGE_QUARANTINE', '11111111-0002-0000-0000-000000000000', '11111111-0003-0000-0000-000000000000',
     50.0, (SELECT id FROM public.units WHERE code = 'KG'), 50.0, (SELECT id FROM public.units WHERE code = 'KG'),
     'INSPECTION_AUDIT', 'Torn seal batch isolated', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -210,7 +212,7 @@ INSERT INTO public.stock_transactions (
 
 SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0003-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0003-0000-0000-000000000000'),
     50.0,
     'Quarantine balance increased to 50.0 KG'
 );
@@ -219,7 +221,7 @@ SELECT is(
 SELECT is(
     (SELECT sum(b.on_hand_quantity)::numeric FROM public.material_location_balances b
      JOIN public.locations l ON l.id = b.location_id
-     WHERE b.material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND l.location_type IN ('STORE_SHELF', 'SHOP_FLOOR_BUFFER')),
+     WHERE b.material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND l.location_type IN ('STORE_SHELF', 'SHOP_FLOOR_BUFFER')),
     950.0,
     'Usable stock decreased to 950.0 KG while total plant stock remains conserved'
 );
@@ -233,7 +235,7 @@ INSERT INTO public.stock_transactions (
     movement_type, source_location_id, destination_location_id, quantity, unit_id,
     entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
 ) VALUES (
-    'TXN-SCRAP-001', 'test_key_0000000000000008', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+    'TXN-SCRAP-001', 'test_key_0000000000000008', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'SCRAP_DISPOSAL', '11111111-0003-0000-0000-000000000000', NULL,
     20.0, (SELECT id FROM public.units WHERE code = 'KG'), 20.0, (SELECT id FROM public.units WHERE code = 'KG'),
     'INSPECTION_AUDIT', 'Approved disposal batch #88', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -241,13 +243,13 @@ INSERT INTO public.stock_transactions (
 
 SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0003-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0003-0000-0000-000000000000'),
     30.0,
     'Quarantine balance reduced to 30.0 KG after scrap disposal'
 );
 
 SELECT is(
-    (SELECT sum(on_hand_quantity)::numeric FROM public.material_location_balances WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm'),
+    (SELECT sum(on_hand_quantity)::numeric FROM public.material_location_balances WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
     980.0,
     'Total physical inventory permanently reduced to 980.0 KG by scrap disposal'
 );
@@ -260,7 +262,7 @@ SELECT throws_ok(
         movement_type, source_location_id, destination_location_id, quantity, unit_id,
         entered_quantity, entered_unit_id, measurement_method, movement_reason, created_by
     ) VALUES (
-        'TXN-OVERDRAW-001', 'test_key_0000000000000009', 1, 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm',
+        'TXN-OVERDRAW-001', 'test_key_0000000000000009', 1, 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
         'LOCATION_TRANSFER', '11111111-0001-0000-0000-000000000000', '11111111-0002-0000-0000-000000000000',
         800.0, (SELECT id FROM public.units WHERE code = 'KG'), 800.0, (SELECT id FROM public.units WHERE code = 'KG'),
         'SCALE_WEIGHED', 'Overdraw attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -275,9 +277,9 @@ SELECT throws_ok(
 SELECT is(
     (SELECT coalesce(sum(CASE WHEN destination_location_id = '11111111-0001-0000-0000-000000000000' THEN quantity ELSE 0 END), 0)
           - coalesce(sum(CASE WHEN source_location_id = '11111111-0001-0000-0000-000000000000' THEN quantity ELSE 0 END), 0)
-     FROM public.stock_transactions WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm'),
+     FROM public.stock_transactions WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
     (SELECT on_hand_quantity FROM public.material_location_balances 
-     WHERE material_id = 'mmmmmmmm-mmmm-mmmm-mmmm-mmmmmmmmmmmm' AND location_id = '11111111-0001-0000-0000-000000000000'),
+     WHERE material_id = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaaa' AND location_id = '11111111-0001-0000-0000-000000000000'),
     'Signed ledger formula sum(dest) - sum(src) exactly reconciles with projection on shelf'
 );
 
