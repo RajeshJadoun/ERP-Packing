@@ -475,9 +475,18 @@ BEGIN
     IF v_actor_id IS NULL THEN
         RAISE EXCEPTION 'Valid authentication is required.' USING ERRCODE = '42501';
     END IF;
-    IF v_role NOT IN ('ADMIN', 'PLANNER') THEN
+    IF v_role IS DISTINCT FROM 'ADMIN' AND v_role IS DISTINCT FROM 'PLANNER' THEN
         RAISE EXCEPTION 'Only planners and administrators can create BOMs.' USING ERRCODE = '42501';
     END IF;
+    v_response := public.fn_acquire_idempotency(
+        p_idempotency_key, 'POST:/api/v1/boms', p_request_hash, v_actor_id
+    );
+    IF v_response->>'action' = 'REPLAY' THEN
+        RETURN v_response->'body';
+    ELSIF v_response->>'action' = 'EXPIRED' THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_response USING ERRCODE = '23514';
+    END IF;
+
     IF p_product_id IS NULL OR length(trim(coalesce(p_packing_variant_name, ''))) = 0
        OR length(trim(p_packing_variant_name)) > 120 THEN
         RAISE EXCEPTION 'Product and a packing variant name of 1-120 characters are required.'
@@ -507,15 +516,6 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'This BOM recipe already has a version. Use the new-version operation.'
             USING ERRCODE = '23505';
-    END IF;
-
-    PERFORM public.fn_acquire_idempotency(
-        p_idempotency_key, 'POST:/api/v1/boms', p_request_hash, v_actor_id
-    ) INTO v_response;
-    IF v_response->>'action' = 'REPLAY' THEN
-        RETURN v_response->'body';
-    ELSIF v_response->>'action' = 'EXPIRED' THEN
-        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_response USING ERRCODE = '23514';
     END IF;
 
     INSERT INTO public.boms (
@@ -566,9 +566,21 @@ BEGIN
     IF v_actor_id IS NULL THEN
         RAISE EXCEPTION 'Valid authentication is required.' USING ERRCODE = '42501';
     END IF;
-    IF v_role NOT IN ('ADMIN', 'PLANNER') THEN
+    IF v_role IS DISTINCT FROM 'ADMIN' AND v_role IS DISTINCT FROM 'PLANNER' THEN
         RAISE EXCEPTION 'Only planners and administrators can create BOM versions.' USING ERRCODE = '42501';
     END IF;
+    v_response := public.fn_acquire_idempotency(
+        p_idempotency_key,
+        'POST:/api/v1/boms/<bom_id>/new-version',
+        p_request_hash,
+        v_actor_id
+    );
+    IF v_response->>'action' = 'REPLAY' THEN
+        RETURN v_response->'body';
+    ELSIF v_response->>'action' = 'EXPIRED' THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_response USING ERRCODE = '23514';
+    END IF;
+
     IF p_revision_reason IS NULL OR length(trim(p_revision_reason)) < 3
        OR length(trim(p_revision_reason)) > 2000 THEN
         RAISE EXCEPTION 'A revision reason of 3-2000 characters is required.' USING ERRCODE = '22023';
@@ -585,18 +597,6 @@ BEGIN
     SELECT * INTO v_source FROM public.boms WHERE id = p_source_bom_id FOR UPDATE;
     IF NOT FOUND OR v_source.status = 'ARCHIVED' THEN
         RAISE EXCEPTION 'Source BOM is missing or archived.' USING ERRCODE = '23514';
-    END IF;
-
-    v_response := public.fn_acquire_idempotency(
-        p_idempotency_key,
-        'POST:/api/v1/boms/<bom_id>/new-version',
-        p_request_hash,
-        v_actor_id
-    );
-    IF v_response->>'action' = 'REPLAY' THEN
-        RETURN v_response->'body';
-    ELSIF v_response->>'action' = 'EXPIRED' THEN
-        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_response USING ERRCODE = '23514';
     END IF;
 
     SELECT coalesce(max(b.version_number), 0) + 1
@@ -657,7 +657,7 @@ BEGIN
     IF v_actor_id IS NULL THEN
         RAISE EXCEPTION 'Valid authentication is required.' USING ERRCODE = '42501';
     END IF;
-    IF v_role NOT IN ('ADMIN', 'PLANNER') THEN
+    IF v_role IS DISTINCT FROM 'ADMIN' AND v_role IS DISTINCT FROM 'PLANNER' THEN
         RAISE EXCEPTION 'Only planners and administrators can activate BOM versions.' USING ERRCODE = '42501';
     END IF;
 
@@ -763,7 +763,7 @@ BEGIN
     IF v_actor_id IS NULL THEN
         RAISE EXCEPTION 'Valid authentication is required.' USING ERRCODE = '42501';
     END IF;
-    IF v_role NOT IN ('ADMIN', 'PLANNER') THEN
+    IF v_role IS DISTINCT FROM 'ADMIN' AND v_role IS DISTINCT FROM 'PLANNER' THEN
         RAISE EXCEPTION 'Only planners and administrators can create daily plans.' USING ERRCODE = '42501';
     END IF;
     IF p_plan_date IS NULL OR length(trim(coalesce(p_shift_code, ''))) = 0
@@ -988,7 +988,7 @@ BEGIN
     IF v_actor_id IS NULL THEN
         RAISE EXCEPTION 'Valid authentication is required.' USING ERRCODE = '42501';
     END IF;
-    IF v_role NOT IN ('ADMIN', 'PLANNER') THEN
+    IF v_role IS DISTINCT FROM 'ADMIN' AND v_role IS DISTINCT FROM 'PLANNER' THEN
         RAISE EXCEPTION 'Only planners and administrators can release daily plans.' USING ERRCODE = '42501';
     END IF;
 
@@ -1070,12 +1070,16 @@ BEGIN
         RETURNING id INTO v_snapshot_id;
 
         FOR v_bom_line IN
-            SELECT bl.*, m.canonical_unit_id
+            SELECT bl.*, m.canonical_unit_id, m.is_active AS material_is_active
             FROM public.bom_lines bl
-            JOIN public.materials m ON m.id = bl.material_id AND m.is_active = true
+            LEFT JOIN public.materials m ON m.id = bl.material_id
             WHERE bl.bom_id = v_bom.id
             ORDER BY bl.material_id
         LOOP
+            IF v_bom_line.material_is_active IS DISTINCT FROM true THEN
+                RAISE EXCEPTION 'A master BOM contains an inactive or missing material.'
+                    USING ERRCODE = '23514';
+            END IF;
             v_conversion := public.fn_resolve_material_conversion(
                 v_bom_line.material_id, v_bom_line.unit_id, v_bom_line.canonical_unit_id
             );
