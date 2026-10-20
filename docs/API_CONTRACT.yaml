@@ -9,7 +9,7 @@ info:
     removal of invented surrogate idempotencyKeyId from response schemas, complete 10/10 resource recovery
     mapping, 100% mandatory Idempotency-Key enforcement on all 20 POST commands, and strict separation between
     transactional Flask commands and direct Supabase PostgREST master CRUD.
-  version: 1.10.0
+  version: 1.11.0
 servers:
   - url: http://localhost:5000/api/v1
     description: Local Flask Development Server
