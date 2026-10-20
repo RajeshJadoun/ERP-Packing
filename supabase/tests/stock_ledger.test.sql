@@ -89,7 +89,7 @@ SELECT throws_ok(
         'SCALE_WEIGHED', 'Self transfer attempt', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
     )
     $$,
-    'chk_stock_locations_distinct',
+    '23514',
     'Identical source and destination locations rejected by check constraint'
 );
 
