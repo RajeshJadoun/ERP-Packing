@@ -209,6 +209,8 @@ graph TD
 ---
 
 ### Phase 6: Bill of Materials (BOM) Versioning & Daily Planning Scheduler
+**Implementation status (2026-10-20):** Implemented and CI-verified on PR #5. Backend validation: 78 pytest tests plus Ruff; database validation: 260 pgTAP assertions across 11 suites. The hosted Supabase migration is pending merge and rollout. See [Phase 6 implementation report](PHASE_6_BOM_PLANNING_IMPLEMENTATION_REPORT.md).
+
 - **Scope:**
   - Implement Master BOM creation with `NULLS NOT DISTINCT` uniqueness and single active version enforcement via partial unique index `idx_boms_single_active_version`.
   - Implement atomic BOM activation procedure: within a single transaction, the existing active BOM is superseded and the new version is activated.
