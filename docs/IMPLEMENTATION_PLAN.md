@@ -2,7 +2,7 @@
 
 **Project:** Packing Material Inventory & BOM Management System  
 **Document Version:** 1.16.0  
-**Status:** Phase 7 database/backend verified. Phase 8 frontend/MSW workflow CI verified; live JWT/RLS validation and public SPA/Flask deployment smoke test remain gated on environment provisioning. Phase 9 reporting views, authenticated Flask endpoints, responsive analytics UI, filters, chart summaries and CSV/print-to-PDF exports are implemented; frontend and backend CI pass, with database CI and live authenticated data validation still being checked.  
+**Status:** Phase 7 database/backend verified. Phase 8 frontend/MSW workflow CI verified; live JWT/RLS validation and public SPA/Flask deployment smoke test remain gated on environment provisioning. Phase 9 reporting views, authenticated Flask endpoints, responsive analytics UI, filters, chart summaries and CSV/print-to-PDF exports are implemented. Frontend CI, Flask tests/Ruff and pgTAP database CI have passed; live authenticated report data and populated-data performance validation remain gated on environment provisioning.  
 **Date:** 2026-10-20  
 
 ---
@@ -325,7 +325,7 @@ graph TD
 
 ### Phase 9: Operational Reports, Analytic Views & Material Reconciliations
 
-**Implementation status (2026-10-20):** Core implementation is committed to `main`. Six PostgreSQL views were applied to the linked Supabase project using `security_invoker=true`; direct SQL verification confirms SELECT access is denied to `anon` and granted to `authenticated`, while underlying table RLS remains authoritative. Six authenticated Flask report endpoints, validated inclusive date/shift/material/worker/vendor filters, bounded pagination, React analytics summaries, CSV export and browser print-to-PDF are implemented. Frontend CI passed on [run 39443676394](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443676394), and Flask tests plus Ruff passed on [run 39443769015](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443769015). The linked database currently has no provisioned Auth users and operational test rows are empty, so the actual user-JWT report result set and performance under populated data remain deployment/seed-data verification items. See [Phase 9 implementation report](PHASE_9_ANALYTICS_IMPLEMENTATION_REPORT.md).
+**Implementation status (2026-10-20):** Core implementation is committed to `main`. Six PostgreSQL views were applied to the linked Supabase project using `security_invoker=true`; direct SQL verification confirms SELECT access is denied to `anon` and granted to `authenticated`, while underlying table RLS remains authoritative. Six authenticated Flask report endpoints, validated inclusive date/shift/material/worker/vendor filters, bounded pagination, React analytics summaries, CSV export and browser print-to-PDF are implemented. Frontend CI passed on [run 39443676394](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443676394), Flask tests plus Ruff passed on [run 39443769015](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443769015), and pgTAP database CI passed on [run 39443502375](https://github.com/RajeshJadoun/ERP-Packing/actions/runs/39443502375). The linked database currently has no provisioned Auth users and operational test rows are empty, so the actual user-JWT report result set and performance under populated data remain deployment/seed-data verification items. See [Phase 9 implementation report](PHASE_9_ANALYTICS_IMPLEMENTATION_REPORT.md).
 
 - **Scope:**
   - Implement SQL analytical views in PostgreSQL:
