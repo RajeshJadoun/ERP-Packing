@@ -83,6 +83,22 @@ authorization and integrity boundary. No service-role credential is used here.
 connectivity state, and UTC timestamp. An unconfigured or unreachable database
 returns HTTP 503 and never claims the service is healthy.
 
+## Phase 5 stock API routes
+
+The initial Phase 5 route layer adds caller-authenticated stock balance and
+ledger reads, worker-custody summaries, stock transaction/adjustment detail
+recovery, and movement commands for issue/return, transfer, damage quarantine,
+scrap disposal, and cycle-count adjustments. Every write requires
+`Idempotency-Key`. Critical movement writes are forwarded to PostgreSQL
+transactional RPCs using the verified user's JWT; the HTTP service never writes
+to ledger/projection tables directly.
+
+Stock balances are projected from leaf location balances only, and available
+quantity subtracts active reservations. Damage-quarantine stock remains
+physically on hand but reports zero usable availability. Movement quantities
+are normalized to the material canonical unit within PostgreSQL; the client-
+supplied quantity/unit are retained as measurement provenance.
+
 ## Automated tests
 
 ```bash
