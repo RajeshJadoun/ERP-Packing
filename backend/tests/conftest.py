@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from uuid import UUID, uuid4
-
 import jwt
 import pytest
-from flask import Blueprint, jsonify
+from flask import Blueprint, g, jsonify
 
 from app import create_app
 from app.auth import authenticate_request, require_role
@@ -49,12 +47,12 @@ def app():
 
     @test_bp.get("/protected")
     def protected():
-        return jsonify({"success": True, "userId": __import__("flask").g.user_id})
+        return jsonify({"success": True, "userId": g.user_id})
 
     @test_bp.get("/admin")
     @require_role("ADMIN")
     def admin():
-        return jsonify({"success": True, "role": __import__("flask").g.user_role})
+        return jsonify({"success": True, "role": g.user_role})
 
     app.register_blueprint(test_bp)
     yield app
