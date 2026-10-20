@@ -853,7 +853,7 @@ BEGIN
         'differenceQuantity', v_diff
     );
     PERFORM public.fn_complete_idempotency(
-        p_idempotency_key, 'STOCK_ADJUSTMENT', v_adj_id, 201, v_response
+        p_idempotency_key, 'STOCK_ADJUSTMENT', v_adj_id, 200, v_response
     );
     RETURN v_response;
 END;
