@@ -169,8 +169,6 @@ def test_daily_plan_read_handles_one_to_one_snapshot_object(app, monkeypatch):
     )
     with app.test_request_context("/api/v1/packing-jobs/example"):
         g.auth_token = "verified-caller-jwt"
-        from app.services.planning_service import get_packing_job
-
         result = get_packing_job(job_id)
 
     assert result["snapshot"]["id"] == snapshot_id
