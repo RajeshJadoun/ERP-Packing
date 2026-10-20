@@ -64,6 +64,19 @@ BEGIN
             USING ERRCODE = '42501';
     END IF;
 
+    v_idem := public.fn_acquire_idempotency(
+        p_idempotency_key,
+        'POST:/api/v1/purchase-orders',
+        p_request_hash,
+        v_actor_id
+    );
+
+    IF v_idem->>'action' = 'REPLAY' THEN
+        RETURN v_idem->'body';
+    ELSIF v_idem->>'action' = 'EXPIRED' THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_idem USING ERRCODE = '23514';
+    END IF;
+
     IF p_po_number IS NULL OR length(trim(p_po_number)) < 3 OR length(p_po_number) > 80 THEN
         RAISE EXCEPTION 'PO number must contain between 3 and 80 characters.'
             USING ERRCODE = '22023';
@@ -96,19 +109,6 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'A material can appear only once on a purchase order.'
             USING ERRCODE = '23505';
-    END IF;
-
-    v_idem := public.fn_acquire_idempotency(
-        p_idempotency_key,
-        'POST:/api/v1/purchase-orders',
-        p_request_hash,
-        v_actor_id
-    );
-
-    IF v_idem->>'action' = 'REPLAY' THEN
-        RETURN v_idem->'body';
-    ELSIF v_idem->>'action' = 'EXPIRED' THEN
-        RAISE EXCEPTION 'IDEMPOTENCY_RESPONSE_EXPIRED: %', v_idem USING ERRCODE = '23514';
     END IF;
 
     PERFORM 1
