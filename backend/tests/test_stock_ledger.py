@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from app.services.stock_service import get_stock_balances, get_stock_ledger
 
-
 MATERIAL = "10000000-0000-0000-0000-000000000001"
 UNIT = "20000000-0000-0000-0000-000000000001"
 CATEGORY = "30000000-0000-0000-0000-000000000001"
