@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import psycopg
@@ -124,7 +124,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         payload = {
             "status": "HEALTHY" if healthy else "UNHEALTHY",
             "database": database,
-            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
         return jsonify(payload), (200 if healthy else 503)
 
