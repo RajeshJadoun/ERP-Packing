@@ -216,7 +216,7 @@ Outcome: found 0 vulnerabilities (100% PASS)
    - *Resolution:* When hosting accounts are provisioned, configure deployment secrets in GitHub Actions and execute deployment workflows.
 2. **Live Supabase Auth Users:**
    - *Reason:* Supabase cloud project `bkyzwdaazscsiocmefbn` has 0 users in `auth.users` and 0 profiles in `public.profiles`.
-   - *Resolution:* Execute the SQL bootstrap script in `docs/SYSTEM_WALKTHROUGH.md` (Section 4) via the Supabase SQL Editor to seed the initial `ADMIN`, `STOREKEEPER`, `PLANNER`, `OPERATOR`, and `VIEWER` accounts.
+   - *Resolution:* Create one Auth user in Supabase Dashboard, then follow the guarded one-time initial-ADMIN bootstrap in `docs/SYSTEM_WALKTHROUGH.md` (Section 4). The Auth trigger provisions the linked profile as `VIEWER`; after the first administrator signs in, create remaining test users through Supabase Auth and assign their roles through the authenticated Admin UI/API. Do not insert fake UUIDs or create profile rows for users absent from `auth.users`.
 
 ### Recommended Next Action:
 1. Review the committed changes on branch `main`.
