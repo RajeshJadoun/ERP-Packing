@@ -85,7 +85,7 @@ export function PlanningPage({role,shift}:{role:string;shift:string}) {
           </div>)}
           <Button variant="secondary" onClick={()=>setDraftJobs(old=>old.map((x,i)=>i===index?{...x,customLines:[...x.customLines,line()]}:x))}><Plus size={14}/> Add custom material</Button>
           <Field label="Customization note" value={j.notes} onChange={v=>setDraftJobs(old=>old.map((x,i)=>i===index?{...x,notes:v}:x))} placeholder="Custom packing spec"/>
-        </>
+        </>}
         </div>{j.mode==="custom"?<div className="form-note"><SlidersHorizontal size={15}/> A custom recipe stays source-less. Release validates and freezes the entered line instead of creating a fake master BOM.</div>:null}
       </div>)}
       <div className="form-footer"><Button variant="secondary" onClick={()=>setCreateOpen(false)}>Cancel</Button><Button type="submit" loading={busy}>Create draft plan</Button></div>
