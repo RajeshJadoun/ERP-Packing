@@ -13,6 +13,7 @@ import { ProductionPage, ClosingPage } from "./ProductionClosing";
 import { CustodyPage } from "./Custody";
 import { QuarantinePage } from "./Stock";
 import { BomStudioPage } from "./BomStudio";
+import { CatalogPage } from "./Catalog";
 
 const userSession = { access_token: "test-operations-token" };
 
@@ -545,6 +546,91 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByRole("button", { name: "Confirm material issue" })).toBeDisabled();
     await userEvent.setup().click(screen.getByRole("button", { name: "Return from worker" }));
     expect(screen.getByRole("button", { name: "Confirm material return" })).toBeDisabled();
+  });
+
+  it("previews dual-unit receipt quantities with the direction and conversion factor visible", async () => {
+    const user = userEvent.setup();
+    const boxUnitId = "unit-box";
+    configureDb({
+      vendors: [{ id: vendorId, vendor_code: "V-001", name: "Sample Supplier", is_active: true }],
+      materials: [{ id: materialId, material_code: "MAT-001", name: "Poly bag", canonical_unit_id: unitId, is_active: true }],
+      units: [
+        { id: unitId, code: "PCS", name: "Pieces", dimension: "COUNT" },
+        { id: boxUnitId, code: "BOX", name: "Box", dimension: "COUNT" }
+      ],
+      locations: [{ id: shelfId, location_code: "IN-A1", name: "Receiving bay A1", location_type: "RECEIVING_BAY", is_leaf: true, is_active: true }],
+      purchase_orders: [],
+      goods_receipts: [],
+      material_conversions: [{
+        id: "conversion-1", material_id: materialId, from_unit_id: boxUnitId, to_unit_id: unitId,
+        conversion_factor: 10, is_exact: true, effective_to: null, effective_from: "2026-01-01"
+      }]
+    });
+
+    render(<MemoryRouter><PurchasingPage role="STOREKEEPER" /></MemoryRouter>);
+    await user.click(await screen.findByRole("button", { name: /Inward GRNs/i }));
+    await user.click(screen.getByRole("button", { name: /New inward receipt/i }));
+    await user.selectOptions(screen.getByLabelText(/Vendor/), vendorId);
+    await user.selectOptions(screen.getByLabelText(/Receiving location/), shelfId);
+    await user.type(screen.getByLabelText(/Invoice number/), "INV-DUAL-01");
+    await user.selectOptions(screen.getByLabelText(/^Material/), materialId);
+    await user.clear(screen.getByLabelText(/Entered quantity/));
+    await user.type(screen.getByLabelText(/Entered quantity/), "12");
+    await user.selectOptions(screen.getByLabelText(/Entered unit/), boxUnitId);
+    await user.clear(screen.getByLabelText(/Rejected quantity/));
+    await user.type(screen.getByLabelText(/Rejected quantity/), "2");
+    await user.selectOptions(screen.getByLabelText(/Rejected unit/), boxUnitId);
+    await user.click(screen.getByRole("button", { name: /Preview dual units/i }));
+
+    expect(await screen.findByText("100 PCS")).toBeInTheDocument();
+    expect(screen.getByText(/Exact conversion · factor 10 · MULTIPLY/i)).toBeInTheDocument();
+    expect(screen.getByText("10", { exact: true })).toBeInTheDocument();
+  });
+
+  it("creates a dynamic material category and persists material-specific JSON specifications", async () => {
+    const user = userEvent.setup();
+    const categoryDb = configureDb({ material_categories: [] });
+    const categoryRoutes = (
+      <MemoryRouter initialEntries={["/masters/categories"]}>
+        <Routes><Route path="/masters/:resource" element={<CatalogPage role="ADMIN" />} /></Routes>
+      </MemoryRouter>
+    );
+    const categoryView = render(categoryRoutes);
+    await user.click(await screen.findByRole("button", { name: /Add record/i }));
+    await user.type(screen.getByLabelText(/Category code/), "POLY_BAG_CUSTOM");
+    await user.type(screen.getByLabelText(/Category name/), "Custom Poly Bags");
+    await user.type(screen.getByLabelText(/Description/), "Variant-specific material family");
+    await user.click(screen.getByRole("button", { name: "Create record" }));
+    expect(await screen.findByText("Record created.")).toBeInTheDocument();
+    expect(categoryDb.operations.find((op) => op.table === "material_categories" && op.operation === "insert")?.payload).toMatchObject({
+      code: "POLY_BAG_CUSTOM", name: "Custom Poly Bags", description: "Variant-specific material family", is_active: true
+    });
+    categoryView.unmount();
+
+    const categoryId = "category-custom";
+    const materialDb = configureDb({
+      materials: [],
+      material_categories: [{ id: categoryId, code: "POLY_BAG_CUSTOM", name: "Custom Poly Bags", is_active: true }],
+      units: [{ id: unitId, code: "PCS", name: "Pieces", dimension: "COUNT" }]
+    });
+    render(
+      <MemoryRouter initialEntries={["/masters/materials"]}>
+        <Routes><Route path="/masters/:resource" element={<CatalogPage role="ADMIN" />} /></Routes>
+      </MemoryRouter>
+    );
+    await user.click(await screen.findByRole("button", { name: /Add record/i }));
+    await user.type(screen.getByLabelText(/Material code/), "MAT-POLY-80");
+    await user.type(screen.getByLabelText(/Material name/), "Poly bag 80 gauge");
+    await user.selectOptions(screen.getByLabelText(/Category/), categoryId);
+    await user.selectOptions(screen.getByLabelText(/Canonical unit/), unitId);
+    await user.type(screen.getByLabelText(/Dynamic specifications/), '{"gauge":80,"widthMm":200}');
+    await user.click(screen.getByRole("button", { name: "Create record" }));
+
+    expect(await screen.findByText("Record created.")).toBeInTheDocument();
+    expect(materialDb.operations.find((op) => op.table === "materials" && op.operation === "insert")?.payload).toMatchObject({
+      material_code: "MAT-POLY-80", name: "Poly bag 80 gauge", category_id: categoryId,
+      canonical_unit_id: unitId, specifications: { gauge: 80, widthMm: 200 }, is_active: true
+    });
   });
 
 });
