@@ -22,7 +22,7 @@ export function DashboardPage({ role, shift }: { role: string; shift: string }) 
   const state = useAsyncData(load, role);
   const { balances = [], plans = [], custody = [] } = state.data ?? {};
   const filteredPlans = plans.filter((p) => shift === "ALL" || p.shift_code === shift || shift === "GENERAL" && p.shift_code === "GENERAL");
-  const jobs = filteredPlans.flatMap((plan) => (plan.packing_jobs ?? []).map((job) => ({ ...job, plan })));
+  const jobs = filteredPlans.flatMap((plan) => (plan.packing_jobs ?? []).map((job: Row) => ({ ...job, plan })));
   const activeJobs = jobs.filter((job) => ["RELEASED","IN_PROGRESS","PARTIALLY_COMPLETED"].includes(String(job.status)));
   const visibleJobs = activeJobs.filter((job) => `${job.job_code} ${job.product_id} ${job.party_id}`.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
   const planned = jobs.reduce((sum, job) => sum + Number(job.current_revised_quantity ?? 0), 0);

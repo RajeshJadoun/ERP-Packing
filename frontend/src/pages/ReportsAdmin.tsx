@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { Activity, Download, FileBarChart2, FileClock, ShieldCheck, Users, RefreshCw, Search, UserCog } from "lucide-react";
 import { apiGet, apiPost } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { formatQuantity } from "../lib/domain";
 import { Alert, Badge, Button, Card, DataTable, Field, PageHeader, SearchBox, SectionTitle, SelectField, StatusBadge, TextArea, Toolbar } from "../components/ui";
 import { Row, downloadCsv, displayDate, selectRows, useAsyncData } from "./shared";
