@@ -1,0 +1,9 @@
+export { DashboardPage } from "./Dashboard";
+export { CatalogPage } from "./Catalog";
+export { StockPage, QuarantinePage } from "./Stock";
+export { PurchasingPage } from "./Purchasing";
+export { BomStudioPage } from "./BomStudio";
+export { PlanningPage, JobDetailPage } from "./Planning";
+export { ProductionPage, ClosingPage } from "./ProductionClosing";
+export { CustodyPage } from "./Custody";
+export { ReportsPage, AdminPage } from "./ReportsAdmin";
