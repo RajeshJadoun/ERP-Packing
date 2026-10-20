@@ -26,8 +26,11 @@ DECLARE
     v_loc_dock_id uuid := gen_random_uuid();
     v_unit_kg_id uuid;
     v_unit_pcs_id uuid;
+    v_unit_box_id uuid;
     v_cat_id uuid;
+    v_cat_box_id uuid;
     v_mat_id uuid := gen_random_uuid();
+    v_mat_box_id uuid := gen_random_uuid();
     v_conv_id uuid := gen_random_uuid();
     v_key text := 'req_purch_test_key_000000001';
     v_hash text := 'hash_purch_test_payload_001';
@@ -40,7 +43,9 @@ BEGIN
     -- Setup Master Data
     SELECT id INTO v_unit_kg_id FROM public.units WHERE code = 'KG';
     SELECT id INTO v_unit_pcs_id FROM public.units WHERE code = 'PCS';
+    SELECT id INTO v_unit_box_id FROM public.units WHERE code = 'BOX';
     SELECT id INTO v_cat_id FROM public.material_categories WHERE code = 'POLY_BAG';
+    SELECT id INTO v_cat_box_id FROM public.material_categories WHERE code = 'CORRUGATED_BOX';
 
     INSERT INTO public.profiles (id, full_name, role, is_active)
     VALUES (v_admin_id, 'Purchasing Admin', 'ADMIN', true)
@@ -55,6 +60,11 @@ BEGIN
     -- Material: Canonical unit is KG
     INSERT INTO public.materials (id, material_code, name, category_id, canonical_unit_id)
     VALUES (v_mat_id, 'MAT-POLY-200G', 'Poly Pouch 200g Food Grade', v_cat_id, v_unit_kg_id);
+
+    -- Second material is deliberately different because the schema enforces
+    -- UNIQUE(po_id, material_id) on purchase_order_lines.
+    INSERT INTO public.materials (id, material_code, name, category_id, canonical_unit_id)
+    VALUES (v_mat_box_id, 'MAT-CORR-BOX', 'Corrugated Box', v_cat_box_id, v_unit_box_id);
 
     -- Conversion Rule: 1 PCS = 0.005 KG (5 grams per pouch, exact)
     INSERT INTO public.material_conversions (
@@ -72,10 +82,10 @@ BEGIN
 
     -- PO has two separate lines for the same material (e.g. two separate deliveries or packaging specs)
     INSERT INTO public.purchase_order_lines (id, po_id, material_id, ordered_quantity, unit_id)
-    VALUES (v_po_line_1_id, v_po_id, v_mat_id, 5000.0, v_unit_pcs_id);
+    VALUES (v_po_line_1_id, v_po_id, v_mat_id, 25.0, v_unit_kg_id);
 
     INSERT INTO public.purchase_order_lines (id, po_id, material_id, ordered_quantity, unit_id)
-    VALUES (v_po_line_2_id, v_po_id, v_mat_id, 5000.0, v_unit_pcs_id);
+    VALUES (v_po_line_2_id, v_po_id, v_mat_box_id, 5000.0, v_unit_box_id);
 
     -- Inward Receipt in DRAFT state
     INSERT INTO public.goods_receipts (
@@ -96,16 +106,16 @@ BEGIN
         v_unit_kg_id, v_conv_id, 0.005, 'MULTIPLY', 'EXACT', false
     );
 
-    -- Line 2: Delivered 5000 PCS, Rejected 200 PCS, Accepted 4800 PCS -> Canonical 24.0 KG (4800 * 0.005)
-    -- Explicitly linked to PO Line 2
+    -- Line 2: Different material. Delivered 5000 BOX, rejected 200 BOX,
+    -- accepted 4800 BOX; forged canonical quantity is discarded by the RPC.
     INSERT INTO public.goods_receipt_lines (
         id, grn_id, purchase_order_line_id, material_id, entered_qty, entered_unit_id,
         rejected_qty, rejected_unit_id, accepted_qty, canonical_quantity, canonical_unit_id,
         conversion_rule_id, conversion_factor_used, conversion_direction, conversion_type_used, is_estimated_conversion
     ) VALUES (
-        v_grn_line_2_id, v_grn_id, v_po_line_2_id, v_mat_id, 5000.0, v_unit_pcs_id,
-        200.0, v_unit_pcs_id, 4800.0, 24.0,
-        v_unit_kg_id, v_conv_id, 0.005, 'MULTIPLY', 'EXACT', false
+        v_grn_line_2_id, v_grn_id, v_po_line_2_id, v_mat_box_id, 5000.0, v_unit_box_id,
+        200.0, v_unit_box_id, 4800.0, 24.0,
+        v_unit_box_id, NULL, 1.0, 'NONE', 'EXACT', false
     );
 END $$;
 
@@ -153,8 +163,8 @@ SELECT is(
      WHERE id = (SELECT purchase_order_line_id FROM public.goods_receipt_lines
                  WHERE grn_id = (SELECT id FROM public.goods_receipts WHERE grn_number = 'GRN-2026-PURCH-01')
                    AND entered_qty = 5000.0 AND rejected_qty = 0.0)),
-    5000.0::numeric,
-    'PO Line 1 received quantity updated unambiguously to 5000.0 PCS'
+    25.0::numeric,
+    'PO Line 1 received quantity correctly updated to 25.0 KG from a 5000-PCS GRN'
 );
 
 -- 7. PO Line 2 received quantity updated unambiguously to 4800.0 PCS (no cross-line collision)
@@ -164,7 +174,7 @@ SELECT is(
                  WHERE grn_id = (SELECT id FROM public.goods_receipts WHERE grn_number = 'GRN-2026-PURCH-01')
                    AND entered_qty = 5000.0 AND rejected_qty = 200.0)),
     4800.0::numeric,
-    'PO Line 2 received quantity updated unambiguously to 4800.0 PCS without duplicate-material collision'
+    'PO Line 2 received quantity updated to 4800 BOX without violating the one-material-per-PO-line rule'
 );
 
 -- 8. Receipt status updated to POSTED
