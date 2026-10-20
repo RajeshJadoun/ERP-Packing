@@ -3,11 +3,6 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import uuid4
 
-import pytest
-from flask import g
-
-from app.errors import ApiError
-
 
 def _headers(token: str, key: str = "req_phase4_api_test_000001") -> dict[str, str]:
     return {"Authorization": f"Bearer {token}", "Idempotency-Key": key}
@@ -73,7 +68,7 @@ def test_create_purchase_order_requires_idempotency_key(client, token_factory):
     response = client.post(
         "/api/v1/purchase-orders",
         json=_po_payload(),
-        headers={"Authorization": f"Bearer {token_factory()}},
+        headers={"Authorization": f"Bearer {token_factory()}"},
     )
     assert response.status_code == 400
     assert response.get_json()["error"]["code"] == "INVALID_IDEMPOTENCY_KEY"
