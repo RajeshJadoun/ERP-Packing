@@ -8,10 +8,9 @@ from uuid import UUID
 
 from flask import current_app
 
-from .master_service import rest_select
-
 from ..errors import ApiError
 from ..supabase_rpc import call_supabase_rpc
+from .master_service import rest_select
 
 
 _BOM_SELECT = (
