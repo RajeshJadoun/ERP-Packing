@@ -41,8 +41,15 @@ def _required_uuid(value: str, field: str) -> str:
 
 
 def _job_response(row: dict[str, Any]) -> dict[str, Any]:
-    snapshots = row.get("packing_job_bom_snapshots") or []
-    snapshot = snapshots[0] if snapshots else None
+    snapshots = row.get("packing_job_bom_snapshots")
+    # PostgREST can encode a one-to-one FK relation as an object (unique FK)
+    # or as a list depending on the exposed relationship metadata/version.
+    if isinstance(snapshots, dict):
+        snapshot = snapshots
+    elif isinstance(snapshots, list) and snapshots:
+        snapshot = snapshots[0]
+    else:
+        snapshot = None
     frozen_lines = []
     if snapshot:
         frozen_lines = [
