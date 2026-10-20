@@ -159,8 +159,8 @@ SELECT is(
     (SELECT on_hand_quantity FROM public.material_location_balances
      WHERE material_id = (SELECT id FROM public.materials WHERE material_code = 'MAT-POLY-200G')
        AND location_id = (SELECT id FROM public.locations WHERE location_code = 'LOC-DOCK-01')),
-    49.0::numeric,
-    'Authoritative recalculation posted exactly 49.0 KG (rejected forged draft canonical quantity)'
+    25.0::numeric,
+    'Authoritative recalculation posted exactly 25.0 KG for the KG-based PO line (forged draft canonical quantity discarded)'
 );
 
 -- 6. PO Line 1 received quantity updated unambiguously to 5000.0 PCS
