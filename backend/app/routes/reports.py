@@ -111,17 +111,14 @@ def _list(report: str, *, date_column: str | None = None, material: bool = False
     if start and end and start > end:
         raise ApiError(400, "BAD_REQUEST", "fromDate cannot be later than toDate.")
     if date_column:
-        if start and end and start == end:
+        if start and end and start != end:
+            filters["and"] = f"({date_column}.gte.{start.isoformat()},{date_column}.lte.{end.isoformat()})"
+        elif start and end:
             filters[date_column] = f"eq.{start.isoformat()}"
-        else:
-            if start:
-                filters[date_column] = f"gte.{start.isoformat()}"
-            if end:
-                filters[f"{date_column}"] = f"lte.{end.isoformat()}" if not start else f"gte.{start.isoformat()}"
-                # PostgREST query keys can repeat, but this helper's dict cannot.
-                # Filter fromDate and toDate via the supported range operator.
-                if start:
-                    filters[f"{date_column}__upper"] = f"lte.{end.isoformat()}"
+        elif start:
+            filters[date_column] = f"gte.{start.isoformat()}"
+        elif end:
+            filters[date_column] = f"lte.{end.isoformat()}"
     if material:
         _uuid_filter("materialId", "material_id", filters)
     if worker:
@@ -131,12 +128,9 @@ def _list(report: str, *, date_column: str | None = None, material: bool = False
     if shift:
         _shift_filter(filters)
 
-    # Translate internal upper-bound markers into PostgREST's reserved
-    # repeated query parameter format in the REST helper.
     limit, offset = _pagination()
     rows = list_report_rows(report, filters, limit=limit, offset=offset)
     return jsonify(rows), 200
-
 
 @reports_bp.get("/reports/stock")
 def report_stock():
