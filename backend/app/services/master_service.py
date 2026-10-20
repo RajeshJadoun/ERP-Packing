@@ -47,6 +47,9 @@ _READ_TABLES = MASTER_TABLES | frozenset(
         "packing_job_bom_snapshot_lines",
         "packing_job_revisions",
         "packing_job_events",
+        "production_completions",
+        "material_consumption_records",
+        "daily_closings",
     }
 )
 

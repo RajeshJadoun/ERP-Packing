@@ -19,6 +19,8 @@ from .routes.boms import boms_bp
 from .routes.planning import planning_bp
 from .routes.purchasing import purchasing_bp
 from .routes.stock import stock_bp
+from .routes.production import production_bp
+from .routes.closing import closing_bp
 
 
 def _secret_value(value) -> str | None:
@@ -136,6 +138,8 @@ def create_app(config_overrides: dict | None = None) -> Flask:
     api.register_blueprint(planning_bp)
     api.register_blueprint(purchasing_bp)
     api.register_blueprint(stock_bp)
+    api.register_blueprint(production_bp)
+    api.register_blueprint(closing_bp)
     app.register_blueprint(api)
     allowed_origins = [
         origin.strip()

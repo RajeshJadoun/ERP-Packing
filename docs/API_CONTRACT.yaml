@@ -2,14 +2,12 @@ openapi: 3.0.3
 info:
   title: Packing Material Inventory & BOM Management System REST API
   description: |
-    Production-grade API specification for critical transactional business operations,
-    stock invariant enforcement, BOM versioning, worker custody tracking, and daily closing.
-    Updated through Phase 5 with exact operation counts (34 total: 33 protected, 1 unauthenticated),
-    camelCase resourceReference in HTTP 410 expired responses (resourceType, resourceId, operationCompletedAt),
-    removal of invented surrogate idempotencyKeyId from response schemas, complete 10/10 resource recovery
-    mapping, 100% mandatory Idempotency-Key enforcement on all 20 POST commands, and strict separation between
-    transactional Flask commands and direct Supabase PostgREST master CRUD.
-  version: 1.11.0
+    API contract for transactional stock, BOM planning, production completion, physical consumption
+    verification, shift closing and protected operational workflows. Production counts preserve the
+    difference between estimated theoretical backflush and verified physical usage. All state-changing
+    POST commands require Idempotency-Key; Flask owns multi-row transactions while PostgREST handles
+    caller-scoped reads and allow-listed master CRUD.
+  version: 1.12.0
 servers:
   - url: http://localhost:5000/api/v1
     description: Local Flask Development Server
@@ -1025,6 +1023,48 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
         '404':
+          $ref: '#/components/responses/ErrorResponse'
+
+  /production/completions/{completion_id}/consumption/verify:
+    post:
+      operationId: verifyProductionConsumption
+      summary: Record physical counts for a completed batch
+      description: >
+        Verifies every material row for the completion in canonical units. The operation is
+        atomic and idempotent; it changes UNVERIFIED rows to VERIFIED_ZERO or VARIANCE_RECORDED
+        without rewriting the immutable theoretical backflush ledger.
+      parameters:
+        - name: completion_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyProductionConsumptionRequest'
+      responses:
+        '200':
+          description: Physical counts recorded and variance statuses updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionCompletionDetailResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+        '410':
+          $ref: '#/components/responses/IdempotencyExpiredResponse'
+        '422':
           $ref: '#/components/responses/ErrorResponse'
 
   /closings:
@@ -2319,6 +2359,40 @@ components:
                 type: string
                 enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
                 example: "SCALE_WEIGHED"
+              measurementEvidence:
+                type: string
+                maxLength: 500
+                description: Optional evidence or scale-slip reference for the physical count.
+
+    VerifyProductionConsumptionRequest:
+      type: object
+      required: [actualMaterialUsage]
+      properties:
+        actualMaterialUsage:
+          type: array
+          minItems: 1
+          maxItems: 250
+          description: Supply exactly one item for every material in the completion, using each frozen canonical unit.
+          items:
+            type: object
+            required: [materialId, physicallyConfirmedQuantity, unitId, measurementMethod]
+            properties:
+              materialId:
+                type: string
+                format: uuid
+              physicallyConfirmedQuantity:
+                type: number
+                minimum: 0
+              unitId:
+                type: string
+                format: uuid
+                description: Must match the frozen canonical unit used for theoretical backflush.
+              measurementMethod:
+                type: string
+                enum: [SCALE_WEIGHED, SEALED_BUNDLE, MANUALLY_COUNTED]
+              measurementEvidence:
+                type: string
+                maxLength: 500
 
     ProductionCompletionDetailResponse:
       type: object
@@ -2344,6 +2418,14 @@ components:
         createdAt:
           type: string
           format: date-time
+        completionNumber:
+          type: string
+        remarks:
+          type: string
+          nullable: true
+        completionPolicy:
+          type: string
+          enum: [AUTO_BOM_THEORETICAL, CONFIRMED_ACTUAL_ENTRY]
         consumptions:
           type: array
           items:
@@ -2369,6 +2451,19 @@ components:
                 type: string
                 enum: [UNVERIFIED, VERIFIED_ZERO, VARIANCE_RECORDED]
                 example: "UNVERIFIED"
+              postedLedgerQuantity:
+                type: number
+              canonicalUnitId:
+                type: string
+                format: uuid
+              ledgerQuantityEstimated:
+                type: boolean
+              physicalMeasurementMethod:
+                type: string
+                nullable: true
+              physicalMeasurementEvidence:
+                type: string
+                nullable: true
 
     ExecuteDailyCloseRequest:
       type: object
@@ -2387,8 +2482,43 @@ components:
           default: false
         supervisorOverrideReason:
           type: string
-          description: Mandatory if allowDiscrepancyOverride is true.
-          example: "Operator on emergency leave; 50 unused screws will be counted and returned tomorrow morning."
+          description: Mandatory if allowDiscrepancyOverride is true; only ADMIN can override.
+          example: "Operator on emergency leave; outstanding material custody was reviewed."
+        pendingDispositions:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/PendingJobDisposition'
+
+    PendingJobDisposition:
+      type: object
+      required: [packingJobId, disposition]
+      properties:
+        packingJobId:
+          type: string
+          format: uuid
+        disposition:
+          type: string
+          enum: [CARRY_FORWARD, RESCHEDULE, CANCEL]
+        reason:
+          type: string
+          maxLength: 2000
+        targetPlanDate:
+          type: string
+          format: date
+          description: Required for RESCHEDULE; target jobs copy the frozen source BOM snapshot.
+        targetShiftCode:
+          type: string
+          maxLength: 30
+          description: Required for RESCHEDULE.
+        targetDailyPlanId:
+          type: string
+          format: uuid
+          readOnly: true
+        targetPackingJobId:
+          type: string
+          format: uuid
+          readOnly: true
 
     DailyClosingDetailResponse:
       type: object
@@ -2410,12 +2540,33 @@ components:
         totalJobsPlanned:
           type: integer
           example: 4
+        totalPlannedUnits:
+          type: integer
+        totalCompletedUnits:
+          type: integer
+        totalPendingUnits:
+          type: integer
+        totalCancelledUnits:
+          type: integer
         totalUnitsPacked:
           type: integer
-          example: 1850
         unresolvedDiscrepanciesCount:
           type: integer
           example: 0
+        pendingDispositions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingJobDisposition'
+        discrepancyDetails:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        isReopened:
+          type: boolean
+        reopenReason:
+          type: string
+          nullable: true
         supervisorOverrideReason:
           type: string
           nullable: true
