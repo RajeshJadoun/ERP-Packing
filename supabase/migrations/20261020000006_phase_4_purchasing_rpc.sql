@@ -271,8 +271,12 @@ BEGIN
     FROM public.locations
     WHERE id = NEW.destination_location_id;
 
-    IF NOT FOUND
-       OR v_location.is_active IS DISTINCT FROM true
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Goods receipt destination location does not exist.'
+            USING ERRCODE = '23503';
+    END IF;
+
+    IF v_location.is_active IS DISTINCT FROM true
        OR v_location.is_leaf IS DISTINCT FROM true
        OR v_location.location_type NOT IN ('RECEIVING_BAY', 'STORE_SHELF') THEN
         RAISE EXCEPTION 'Goods receipt destination must be an active leaf receiving bay or store shelf.'
