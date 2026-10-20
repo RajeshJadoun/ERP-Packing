@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 import jwt
 import pytest
 from flask import Blueprint, g, jsonify
@@ -72,7 +73,7 @@ def token_factory():
         expires_in: int = 300,
         secret: str = TEST_SECRET,
     ) -> str:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         claims = {
             "sub": subject,
             "role": role,
