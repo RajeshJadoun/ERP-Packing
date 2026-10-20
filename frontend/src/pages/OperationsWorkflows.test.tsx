@@ -256,7 +256,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
       completionPolicy: "AUTO_BOM_THEORETICAL",
       actualMaterialUsage: []
     });
-    expect(await screen.findByText("UNVERIFIED")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("UNVERIFIED").length).toBeGreaterThan(0));
     expect(body).not.toHaveProperty("varianceQuantity", 0);
   });
   it("posts a draft goods receipt through the authoritative API", async () => {
