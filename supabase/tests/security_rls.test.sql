@@ -133,15 +133,16 @@ SELECT is(
 -- 11. Verify User Provisioning Function Exists
 SELECT has_function('public', 'handle_new_user', 'User provisioning function handle_new_user exists');
 
--- 12. Verify RLS Draft-Only Update on Packing Jobs Policy Exists
+-- 12. Phase 6 routes job mutations through the reservation-aware API RPCs;
+-- direct PostgREST UPDATE is intentionally disabled.
 SELECT ok(
-    EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-          AND tablename = 'packing_jobs' 
+    NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'packing_jobs'
           AND policyname = 'packing_jobs_update_draft_planner_admin'
     ),
-    'packing_jobs has draft-only direct update policy packing_jobs_update_draft_planner_admin'
+    'packing_jobs direct update policy is removed in favor of transactional RPCs'
 );
 
 -- 13. Audit Log Access Restricted to Admin
@@ -155,15 +156,15 @@ SELECT ok(
     'audit_logs has admin-only select policy'
 );
 
--- 14. Verify RLS Update on Daily Plans Policy Exists
+-- 14. Phase 6 plan lifecycle writes go through release RPCs.
 SELECT ok(
-    EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = 'public' 
-          AND tablename = 'daily_plans' 
+    NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'daily_plans'
           AND policyname = 'daily_plans_update_draft_planner_admin'
     ),
-    'daily_plans has direct update policy daily_plans_update_planner_admin'
+    'daily_plans direct update policy is removed in favor of transactional RPCs'
 );
 
 SELECT * FROM finish();

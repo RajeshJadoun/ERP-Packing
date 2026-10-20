@@ -39,6 +39,14 @@ _READ_TABLES = MASTER_TABLES | frozenset(
         "stock_reservations",
         "stock_adjustments",
         "packing_jobs",
+        "boms",
+        "bom_lines",
+        "bom_revision_events",
+        "daily_plans",
+        "packing_job_bom_snapshots",
+        "packing_job_bom_snapshot_lines",
+        "packing_job_revisions",
+        "packing_job_events",
     }
 )
 
