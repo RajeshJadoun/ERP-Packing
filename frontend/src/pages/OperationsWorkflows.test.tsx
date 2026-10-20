@@ -97,7 +97,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByText("No purchase orders yet")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /New purchase order/i }));
     await user.selectOptions(screen.getByLabelText(/Vendor/), vendorId);
-    await user.selectOptions(screen.getByLabelText("Material"), materialId);
+    await user.selectOptions(screen.getByLabelText(/^Material/), materialId);
     await user.clear(screen.getByLabelText(/Ordered quantity/));
     await user.type(screen.getByLabelText(/Ordered quantity/), "100");
     await user.selectOptions(screen.getByLabelText(/^Unit$/), unitId);
@@ -138,7 +138,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByText("No daily plans")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Create daily plan/i }));
     await user.selectOptions(screen.getAllByLabelText(/Customer party/)[0], partyId);
-    await user.selectOptions(screen.getAllByLabelText(/^Product$/)[0], productId);
+    await user.selectOptions(screen.getAllByLabelText(/^Product/)[0], productId);
     await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[0], "bom-v1");
     await user.click(screen.getByRole("button", { name: /Add job/i }));
     await user.selectOptions(screen.getAllByLabelText(/Customer party/)[1], partyId);
@@ -245,7 +245,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.selectOptions(screen.getByLabelText(/Packing operator/), workerId);
     await user.click(screen.getByRole("button", { name: /Record production completion/i }));
 
-    expect(await screen.findByText(/COMP-TEST-001/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "COMP-TEST-001" })).toBeInTheDocument();
     expect(body).toMatchObject({
       packingJobId: jobId,
       completedUnits: 530,
