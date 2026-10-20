@@ -8,7 +8,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
 
-SELECT plan(25);
+SELECT plan(26);
 
 -- Shared test identity and a baseline material used by unit-conversion tests.
 DO $$
@@ -25,11 +25,9 @@ BEGIN
     SELECT id INTO v_category FROM public.material_categories WHERE code = 'POLY_BAG' LIMIT 1;
 
     ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
-    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles(id, full_name, role, is_active)
     VALUES (v_user, 'Phase 2.1.1 Admin', 'ADMIN', true)
     ON CONFLICT (id) DO UPDATE SET role = 'ADMIN', is_active = true;
-    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
     ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     INSERT INTO public.materials(id, material_code, name, category_id, canonical_unit_id)
@@ -398,7 +396,19 @@ BEGIN
     );
 END $$;
 
--- 20. Derived cancellation idempotency key is persisted exactly once.
+-- 20. Daily plan update policy must correlate packing jobs to the parent plan id.
+SELECT ok(
+    position('pj.daily_plan_id = daily_plans.id' IN (
+        SELECT coalesce(qual, '') || ' ' || coalesce(with_check, '')
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'daily_plans'
+          AND policyname = 'daily_plans_update_draft_planner_admin'
+    )) > 0,
+    'Daily plan policy checks linked jobs against the actual parent daily plan'
+);
+
+-- 21. Derived cancellation idempotency key is persisted exactly once.
 SELECT is(
     (SELECT count(*)::integer
      FROM public.idempotency_keys
