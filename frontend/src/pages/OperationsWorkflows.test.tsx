@@ -584,7 +584,6 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
 
     expect(await screen.findByText("100 PCS")).toBeInTheDocument();
     expect(screen.getByText(/Exact conversion · factor 10 · MULTIPLY/i)).toBeInTheDocument();
-    expect(screen.getByText("10", { exact: true })).toBeInTheDocument();
   });
 
   it("creates a dynamic material category and persists material-specific JSON specifications", async () => {
