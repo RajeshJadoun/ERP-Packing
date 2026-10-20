@@ -1,8 +1,8 @@
 # Implementation Roadmap & Phase-by-Phase Execution Plan
 
 **Project:** Packing Material Inventory & BOM Management System  
-**Document Version:** 1.14.0  
-**Status:** Phase 7 database/backend verified. Phase 8 frontend CI verified (13 tests, strict npm audit with zero vulnerabilities, TypeScript and production build); Scenario 1–13 end-to-end coverage and public deployment remain in progress.  
+**Document Version:** 1.15.0  
+**Status:** Phase 7 database/backend verified. Phase 8 application and frontend/MSW workflow CI verified (30 tests across 6 files, strict npm audit with zero vulnerabilities, TypeScript and production build); live JWT/RLS validation and public SPA/Flask deployment smoke test remain gated on environment provisioning.  
 **Date:** 2026-10-20  
 
 ---
@@ -282,7 +282,7 @@ graph TD
 
 ### Phase 8: React + Vite + TypeScript Frontend Application & Workflows
 
-**Status:** Frontend CI passes on 5a05213: 13 tests across 4 files, zero npm audit vulnerabilities, TypeScript and production build passed. Phase 8 remains in progress: end-to-end Scenario 1–13 coverage, live role/RLS validation and deployment smoke test are still required. See docs/PHASE_8_FRONTEND_IMPLEMENTATION_REPORT.md.
+**Status:** Frontend CI passes on commit 26a1f479: 30 tests across 6 files, zero npm audit vulnerabilities, TypeScript and production build passed. Automated UI/API-contract workflows now cover purchasing/GRN, dual-unit preview, custom and versioned BOM planning, quantity conservation, production verification, custody, quarantine/scrap, closing, dynamic catalogs and fail-closed role entry. Phase 8 production release remains gated by live JWT/RLS tests and a deployed SPA-to-Flask smoke test. The linked Supabase project has 33/33 tables with RLS + FORCE RLS and 61 policies, but currently has zero Auth users and zero application profiles; no public SPA/API deployment target is configured. See docs/PHASE_8_FRONTEND_IMPLEMENTATION_REPORT.md and docs/PHASE_8_SCENARIO_MATRIX.md.
 - **Scope:**
   - Scaffold React 19 + Vite + TypeScript application in `frontend/`.
   - Establish Vanilla CSS design system with responsive tokens.
