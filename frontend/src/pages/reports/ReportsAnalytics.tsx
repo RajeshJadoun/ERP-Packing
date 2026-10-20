@@ -118,7 +118,7 @@ export function ReportsAnalyticsPage() {
   }));
   const maxSegmentCount = Math.max(1, ...segmentCounts.map((item) => item.count));
 
-  const columns = {
+  const columns: Record<ReportTab, Array<{ key: string; label: string; render?: (row: Row) => React.ReactNode }>> = {
     stock: [
       { key: "material_name", label: "Material", render: (r: Row) => <div className="report-primary-cell"><strong>{r.material_name}</strong><small>{r.material_code}</small></div> },
       { key: "location_name", label: "Location", render: (r: Row) => <div className="report-primary-cell"><strong>{r.location_name}</strong><small>{r.location_code} · {String(r.location_type ?? "").replaceAll("_", " ")}</small></div> },
@@ -170,7 +170,7 @@ export function ReportsAnalyticsPage() {
       { key: "on_hand_quantity", label: "Outstanding", render: (r: Row) => <strong>{quantity(r.on_hand_quantity)} {r.canonical_unit_code}</strong> },
       { key: "balance_updated_at", label: "Updated", render: (r: Row) => dateLabel(r.balance_updated_at) }
     ]
-  } as const;
+  };
 
   const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -247,7 +247,7 @@ export function ReportsAnalyticsPage() {
       </button>)}</div>
       <div className="table-toolbar"><Toolbar><SearchBox value={search} onChange={setSearch} placeholder="Search displayed report rows…"/><span className="table-count">{reportRows.length} rows</span></Toolbar></div>
       <div className="report-table-caption"><strong>{activeTab?.label}</strong><span>{reportRows.length === sourceRows.length ? "All returned rows" : `${reportRows.length} of ${sourceRows.length} matching displayed rows`} · Maximum 1,000 rows per query</span></div>
-      {state.loading ? <div className="loading-state"><RefreshCw size={18} className="spin"/> Loading report data…</div> : <DataTable rows={reportRows} columns={columns[tab] as Array<{ key: string; label: string; render?: (row: Row) => React.ReactNode }>} rowKey={(row: Row) => tab === "stock" ? `${row.location_id}-${row.material_id}` : tab === "consumption" ? String(row.consumption_id) : tab === "production" ? String(row.plan_id) : tab === "worker-output" ? `${row.plan_id}-${row.worker_id}` : tab === "vendors" ? String(row.goods_receipt_id) : `${row.worker_id}-${row.material_id}` } emptyTitle="No report data" emptyDescription="No records matched this report. Try a wider date range or clear a filter." />}
+      {state.loading ? <div className="loading-state"><RefreshCw size={18} className="spin"/> Loading report data…</div> : <DataTable rows={reportRows} columns={columns[tab]} rowKey={(row: Row) => tab === "stock" ? `${row.location_id}-${row.material_id}` : tab === "consumption" ? String(row.consumption_id) : tab === "production" ? String(row.plan_id) : tab === "worker-output" ? `${row.plan_id}-${row.worker_id}` : tab === "vendors" ? String(row.goods_receipt_id) : `${row.worker_id}-${row.material_id}` } emptyTitle="No report data" emptyDescription="No records matched this report. Try a wider date range or clear a filter." />}
     </Card>
     <div className="info-footnote report-footnote"><FileBarChart2 size={15}/><span>Missing physical consumption stays marked unverified; it is never inferred as zero. Inventory quantities stay attached to their canonical units and inventory segment.</span></div>
   </div>;
