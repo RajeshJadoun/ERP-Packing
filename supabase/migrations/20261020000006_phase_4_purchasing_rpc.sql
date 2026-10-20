@@ -79,7 +79,11 @@ BEGIN
             USING ERRCODE = '23514';
     END IF;
 
-    IF jsonb_typeof(p_lines) IS DISTINCT FROM 'array' OR jsonb_array_length(p_lines) = 0 THEN
+    IF jsonb_typeof(p_lines) IS DISTINCT FROM 'array' THEN
+        RAISE EXCEPTION 'Purchase order lines must be a JSON array.'
+            USING ERRCODE = '22023';
+    END IF;
+    IF jsonb_array_length(p_lines) = 0 THEN
         RAISE EXCEPTION 'A purchase order must contain at least one material line.'
             USING ERRCODE = '22023';
     END IF;
