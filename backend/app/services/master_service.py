@@ -35,6 +35,10 @@ _READ_TABLES = MASTER_TABLES | frozenset(
         "goods_receipts",
         "goods_receipt_lines",
         "stock_transactions",
+        "material_location_balances",
+        "stock_reservations",
+        "stock_adjustments",
+        "packing_jobs",
     }
 )
 
