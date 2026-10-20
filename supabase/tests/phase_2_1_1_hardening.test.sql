@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap;
 SELECT plan(25);
 
 -- Shared test identity and a baseline material used by unit-conversion tests.
-DO $
+DO $$
 DECLARE
     v_user uuid := '88888888-8888-8888-8888-888888888888';
     v_kg uuid;
@@ -35,7 +35,7 @@ BEGIN
     INSERT INTO public.materials(id, material_code, name, category_id, canonical_unit_id)
     VALUES (gen_random_uuid(), 'MAT-HARD-BASE', 'Hardening Baseline Material', v_category, v_kg)
     ON CONFLICT DO NOTHING;
-END $;
+END $$;
 
 
 -- 1. New authoritative conversion resolver exists.
