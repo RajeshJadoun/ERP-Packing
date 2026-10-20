@@ -255,18 +255,18 @@ def get_stock_ledger(
     }
     if material_id:
         params["material_id"] = f"eq.{_normalize_uuid(material_id, 'materialId')}"
-    if from_date:
-        params["created_at"] = f"gte.{from_date}T00:00:00Z"
-    if to_date:
+    if from_date and to_date:
         from datetime import date, timedelta
 
-        params["created_at"] = f"lt.{(date.fromisoformat(to_date) + timedelta(days=1)).isoformat()}T00:00:00Z"
-        if from_date:
-            # PostgREST supports multiple filters on a column through repeated
-            # query parameters, but this dictionary wrapper does not. Use the
-            # inclusive lower bound as an explicit AND expression instead.
-            params["created_at"] = f"gte.{from_date}T00:00:00Z"
-            params["and"] = f"(created_at.lt.{(date.fromisoformat(to_date) + timedelta(days=1)).isoformat()}T00:00:00Z)"
+        to_exclusive = (date.fromisoformat(to_date) + timedelta(days=1)).isoformat()
+        params["and"] = f"(created_at.gte.{from_date}T00:00:00Z,created_at.lt.{to_exclusive}T00:00:00Z)"
+    elif from_date:
+        params["created_at"] = f"gte.{from_date}T00:00:00Z"
+    elif to_date:
+        from datetime import date, timedelta
+
+        to_exclusive = (date.fromisoformat(to_date) + timedelta(days=1)).isoformat()
+        params["created_at"] = f"lt.{to_exclusive}T00:00:00Z"
     rows = rest_select("stock_transactions", params=params)
     if not rows:
         return []
