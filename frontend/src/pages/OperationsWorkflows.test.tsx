@@ -96,13 +96,13 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     render(<MemoryRouter><PurchasingPage role="STOREKEEPER" /></MemoryRouter>);
     expect(await screen.findByText("No purchase orders yet")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /New purchase order/i }));
-    await user.selectOptions(screen.getByLabelText("Vendor"), vendorId);
+    await user.selectOptions(screen.getByLabelText(/Vendor/), vendorId);
     await user.selectOptions(screen.getByLabelText("Material"), materialId);
-    await user.clear(screen.getByLabelText("Ordered quantity"));
-    await user.type(screen.getByLabelText("Ordered quantity"), "100");
-    await user.selectOptions(screen.getByLabelText("Unit"), unitId);
-    await user.clear(screen.getByLabelText("Unit price (₹)"));
-    await user.type(screen.getByLabelText("Unit price (₹)"), "2.5");
+    await user.clear(screen.getByLabelText(/Ordered quantity/));
+    await user.type(screen.getByLabelText(/Ordered quantity/), "100");
+    await user.selectOptions(screen.getByLabelText(/^Unit$/), unitId);
+    await user.clear(screen.getByLabelText(/Unit price/));
+    await user.type(screen.getByLabelText(/Unit price/), "2.5");
     await user.click(screen.getByRole("button", { name: "Create draft PO" }));
 
     expect(await screen.findByText(/PO-TEST-001 created as a draft/i)).toBeInTheDocument();
@@ -137,17 +137,17 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     render(<MemoryRouter><PlanningPage role="PLANNER" shift="SHIFT_1" /></MemoryRouter>);
     expect(await screen.findByText("No daily plans")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Create daily plan/i }));
-    await user.selectOptions(screen.getAllByLabelText("Customer party")[0], partyId);
-    await user.selectOptions(screen.getAllByLabelText("Product")[0], productId);
-    await user.selectOptions(screen.getAllByLabelText("Active BOM version")[0], "bom-v1");
+    await user.selectOptions(screen.getAllByLabelText(/Customer party/)[0], partyId);
+    await user.selectOptions(screen.getAllByLabelText(/^Product$/)[0], productId);
+    await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[0], "bom-v1");
     await user.click(screen.getByRole("button", { name: /Add job/i }));
-    await user.selectOptions(screen.getAllByLabelText("Customer party")[1], partyId);
-    await user.selectOptions(screen.getAllByLabelText("Product")[1], productId);
-    await user.selectOptions(screen.getAllByLabelText("Active BOM version")[1], "bom-v2");
-    await user.clear(screen.getAllByLabelText("Planned quantity")[0]);
-    await user.type(screen.getAllByLabelText("Planned quantity")[0], "300");
-    await user.clear(screen.getAllByLabelText("Planned quantity")[1]);
-    await user.type(screen.getAllByLabelText("Planned quantity")[1], "100");
+    await user.selectOptions(screen.getAllByLabelText(/Customer party/)[1], partyId);
+    await user.selectOptions(screen.getAllByLabelText(/^Product$/)[1], productId);
+    await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[1], "bom-v2");
+    await user.clear(screen.getAllByLabelText(/Planned quantity/)[0]);
+    await user.type(screen.getAllByLabelText(/Planned quantity/)[0], "300");
+    await user.clear(screen.getAllByLabelText(/Planned quantity/)[1]);
+    await user.type(screen.getAllByLabelText(/Planned quantity/)[1], "100");
     await user.click(screen.getByRole("button", { name: "Create draft plan" }));
 
     expect(await screen.findByText(/PLAN-TEST-01 created in draft status/i)).toBeInTheDocument();
@@ -196,15 +196,15 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByText("520 = 0 + 520 + 0")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Revise target/i }));
-    await user.clear(screen.getByLabelText("New authorized target"));
-    await user.type(screen.getByLabelText("New authorized target"), "450");
-    await user.type(screen.getByLabelText("Revision reason"), "Truck transport capacity limitation");
+    await user.clear(screen.getByLabelText(/New authorized target/));
+    await user.type(screen.getByLabelText(/New authorized target/), "450");
+    await user.type(screen.getByLabelText(/Revision reason/), "Truck transport capacity limitation");
     await user.click(screen.getByRole("button", { name: "Confirm revision" }));
     await waitFor(() => expect(revisionBody).toMatchObject({ revisedQuantity: 450, reason: "Truck transport capacity limitation" }));
     expect(await screen.findByText("450 = 0 + 450 + 0")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Cancel remainder/i }));
-    await user.type(screen.getByLabelText("Cancellation reason"), "Customer order cancelled");
+    await user.type(screen.getByLabelText(/Cancellation reason/), "Customer order cancelled");
     await user.click(screen.getByRole("button", { name: "Confirm cancellation" }));
     await waitFor(() => expect(cancellationBody).toMatchObject({ reason: "Customer order cancelled" }));
     expect(await screen.findByText("450 = 0 + 0 + 450")).toBeInTheDocument();
@@ -240,9 +240,9 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
       </MemoryRouter>
     );
     expect(await screen.findByRole("heading", { name: "Production batch" })).toBeInTheDocument();
-    await user.clear(screen.getByLabelText("Completed units"));
-    await user.type(screen.getByLabelText("Completed units"), "530");
-    await user.selectOptions(screen.getByLabelText("Packing operator"), workerId);
+    await user.clear(screen.getByLabelText(/Completed units/));
+    await user.type(screen.getByLabelText(/Completed units/), "530");
+    await user.selectOptions(screen.getByLabelText(/Packing operator/), workerId);
     await user.click(screen.getByRole("button", { name: /Record production completion/i }));
 
     expect(await screen.findByText(/COMP-TEST-001/)).toBeInTheDocument();
