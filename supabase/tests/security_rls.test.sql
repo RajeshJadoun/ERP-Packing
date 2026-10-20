@@ -79,6 +79,7 @@ ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_updat
 SELECT throws_ok(
     $$UPDATE public.profiles SET role = 'ADMIN' WHERE id = '22222222-2222-2222-2222-222222222222'$$,
     '42501',
+    NULL,
     'trg_protect_profile_role blocks unprivileged role elevation'
 );
 
@@ -86,6 +87,7 @@ SELECT throws_ok(
 SELECT throws_ok(
     $$UPDATE public.profiles SET is_active = false WHERE id = '22222222-2222-2222-2222-222222222222'$$,
     '42501',
+    NULL,
     'trg_protect_profile_role blocks unprivileged active status modification'
 );
 
@@ -113,6 +115,7 @@ SELECT is(
 SELECT throws_ok(
     $$SELECT public.admin_update_profile_access('22222222-2222-2222-2222-222222222222', 'STOREKEEPER', true, 'Promoted')$$,
     '28000',
+    NULL,
     'admin_update_profile_access rejects unauthenticated execution (SQLSTATE 28000)'
 );
 
