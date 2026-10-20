@@ -100,7 +100,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.selectOptions(screen.getByLabelText(/^Material/), materialId);
     await user.clear(screen.getByLabelText(/Ordered quantity/));
     await user.type(screen.getByLabelText(/Ordered quantity/), "100");
-    await user.selectOptions(screen.getByLabelText(/^Unit$/), unitId);
+    await user.selectOptions(screen.getByLabelText(/Unit/), unitId);
     await user.clear(screen.getByLabelText(/Unit price/));
     await user.type(screen.getByLabelText(/Unit price/), "2.5");
     await user.click(screen.getByRole("button", { name: "Create draft PO" }));
@@ -138,7 +138,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     expect(await screen.findByText("No daily plans")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Create daily plan/i }));
     await user.selectOptions(screen.getAllByLabelText(/Customer party/)[0], partyId);
-    await user.selectOptions(screen.getAllByLabelText(/^Product/)[0], productId);
+    await user.selectOptions(screen.getAllByLabelText(/Product/)[0], productId);
     await user.selectOptions(screen.getAllByLabelText(/Active BOM version/)[0], "bom-v1");
     await user.click(screen.getByRole("button", { name: /Add job/i }));
     await user.selectOptions(screen.getAllByLabelText(/Customer party/)[1], partyId);
@@ -193,7 +193,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
         <Routes><Route path="/daily-plans/jobs/:id" element={<JobDetailPage role="PLANNER" />} /></Routes>
       </MemoryRouter>
     );
-    expect(await screen.findByText(/520 = 0 \\+ 520 \\+ 0/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Quantity conservation balanced").closest(".conservation-panel")?.textContent).toContain("520 = 0 + 520 + 0"));
 
     await user.click(screen.getByRole("button", { name: /Revise target/i }));
     await user.clear(screen.getByLabelText(/New authorized target/));
@@ -201,13 +201,13 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.type(screen.getByLabelText(/Revision reason/), "Truck transport capacity limitation");
     await user.click(screen.getByRole("button", { name: "Confirm revision" }));
     await waitFor(() => expect(revisionBody).toMatchObject({ revisedQuantity: 450, reason: "Truck transport capacity limitation" }));
-    expect(await screen.findByText(/450 = 0 \\+ 450 \\+ 0/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Quantity conservation balanced").closest(".conservation-panel")?.textContent).toContain("450 = 0 + 450 + 0"));
 
     await user.click(screen.getByRole("button", { name: /Cancel remainder/i }));
     await user.type(screen.getByLabelText(/Cancellation reason/), "Customer order cancelled");
     await user.click(screen.getByRole("button", { name: "Confirm cancellation" }));
     await waitFor(() => expect(cancellationBody).toMatchObject({ reason: "Customer order cancelled" }));
-    expect(await screen.findByText(/450 = 0 \\+ 0 \\+ 450/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Quantity conservation balanced").closest(".conservation-panel")?.textContent).toContain("450 = 0 + 0 + 450"));
     expect(screen.getByText("CANCELLED")).toBeInTheDocument();
   });
 
@@ -245,7 +245,7 @@ describe("Phase 8 transactional operator workflows (MSW + React)", () => {
     await user.selectOptions(screen.getByLabelText(/Packing operator/), workerId);
     await user.click(screen.getByRole("button", { name: /Record production completion/i }));
 
-    expect(await screen.findByRole("heading", { name: "COMP-TEST-001" })).toBeInTheDocument();
+    expect(await screen.findByText(/Completion COMP-TEST-001 recorded/i)).toBeInTheDocument();
     expect(body).toMatchObject({
       packingJobId: jobId,
       completedUnits: 530,
