@@ -65,13 +65,13 @@ BEGIN
     VALUES
       (v_location_id, 'LOC-PHASE4-PO-01', 'Phase 4 Test Receiving Bay', 'RECEIVING_BAY', true, true),
       (v_inactive_location_id, 'LOC-PHASE4-PO-02', 'Phase 4 Inactive Receiving Bay', 'RECEIVING_BAY', true, false);
-END $;
+END $$;
 
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000041', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 
 SELECT throws_ok(
-    $
+    $$
     INSERT INTO public.goods_receipts (
         grn_number, vendor_id, invoice_number, invoice_date, received_date,
         destination_location_id, status
@@ -84,14 +84,14 @@ SELECT throws_ok(
         (SELECT id FROM public.locations WHERE location_code = 'LOC-PHASE4-PO-01'),
         'DRAFT'
     )
-    $,
+    $$,
     '23514',
     NULL,
     'GRN invoice date later than receipt date is rejected'
 );
 
 SELECT throws_ok(
-    $
+    $$
     INSERT INTO public.goods_receipts (
         grn_number, vendor_id, invoice_number, invoice_date, received_date,
         destination_location_id, status
@@ -104,7 +104,7 @@ SELECT throws_ok(
         (SELECT id FROM public.locations WHERE location_code = 'LOC-PHASE4-PO-02'),
         'DRAFT'
     )
-    $,
+    $$,
     '23514',
     NULL,
     'GRN cannot target an inactive receiving location'
