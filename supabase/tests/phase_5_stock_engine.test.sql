@@ -243,8 +243,8 @@ SELECT is(
         'Phase 5 conversion transfer',
         'req_phase5_conv_transfer_000001',
         'phase5-conversion-transfer-hash-1'
-    )->>'quantity',
-    '0.20',
+    )->>'quantity')::numeric,
+    0.20::numeric,
     'Movement RPC posts the authoritative converted canonical quantity'
 );
 
