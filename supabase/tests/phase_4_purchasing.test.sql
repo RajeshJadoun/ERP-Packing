@@ -3,7 +3,7 @@
 -- =============================================================================
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(13);
+SELECT plan(16);
 
 SELECT has_column(
     'public', 'purchase_order_lines', 'unit_price',
@@ -12,6 +12,10 @@ SELECT has_column(
 SELECT has_function(
     'public', 'rpc_create_purchase_order',
     'Transactional purchase order creation RPC exists'
+);
+SELECT has_function(
+    'public', 'trg_validate_goods_receipt_header_phase4',
+    'GRN header validation trigger exists'
 );
 SELECT ok(
     NOT has_table_privilege('authenticated', 'public.purchase_orders', 'INSERT'),
@@ -28,6 +32,8 @@ DECLARE
     v_operator_id uuid := '00000000-0000-0000-0000-000000000042'::uuid;
     v_vendor_id uuid := gen_random_uuid();
     v_material_id uuid := gen_random_uuid();
+    v_location_id uuid := gen_random_uuid();
+    v_inactive_location_id uuid := gen_random_uuid();
     v_unit_id uuid;
     v_category_id uuid;
 BEGIN
@@ -54,10 +60,55 @@ BEGIN
 
     INSERT INTO public.materials (id, material_code, name, category_id, canonical_unit_id, is_active)
     VALUES (v_material_id, 'MAT-PHASE4-PO-01', 'Phase 4 PO Test Material', v_category_id, v_unit_id, true);
-END $$;
+
+    INSERT INTO public.locations (id, location_code, name, location_type, is_leaf, is_active)
+    VALUES
+      (v_location_id, 'LOC-PHASE4-PO-01', 'Phase 4 Test Receiving Bay', 'RECEIVING_BAY', true, true),
+      (v_inactive_location_id, 'LOC-PHASE4-PO-02', 'Phase 4 Inactive Receiving Bay', 'RECEIVING_BAY', true, false);
+END $;
 
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000041', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+
+SELECT throws_ok(
+    $
+    INSERT INTO public.goods_receipts (
+        grn_number, vendor_id, invoice_number, invoice_date, received_date,
+        destination_location_id, status
+    ) VALUES (
+        'GRN-PHASE4-BAD-DATE-01',
+        (SELECT id FROM public.vendors WHERE vendor_code = 'VEND-PHASE4-PO-01'),
+        'INV-PHASE4-BAD-DATE-01',
+        current_date + 1,
+        current_date,
+        (SELECT id FROM public.locations WHERE location_code = 'LOC-PHASE4-PO-01'),
+        'DRAFT'
+    )
+    $,
+    '23514',
+    NULL,
+    'GRN invoice date later than receipt date is rejected'
+);
+
+SELECT throws_ok(
+    $
+    INSERT INTO public.goods_receipts (
+        grn_number, vendor_id, invoice_number, invoice_date, received_date,
+        destination_location_id, status
+    ) VALUES (
+        'GRN-PHASE4-BAD-LOCATION-01',
+        (SELECT id FROM public.vendors WHERE vendor_code = 'VEND-PHASE4-PO-01'),
+        'INV-PHASE4-BAD-LOCATION-01',
+        current_date,
+        current_date,
+        (SELECT id FROM public.locations WHERE location_code = 'LOC-PHASE4-PO-02'),
+        'DRAFT'
+    )
+    $,
+    '23514',
+    NULL,
+    'GRN cannot target an inactive receiving location'
+);
 
 SELECT is(
     public.rpc_create_purchase_order(
