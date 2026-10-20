@@ -72,6 +72,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Posting against organizational parent location is rejected (is_leaf = false)'
 );
 
@@ -90,6 +91,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Identical source and destination locations rejected by check constraint'
 );
 
@@ -108,6 +110,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'DAMAGE_QUARANTINE with NULL source is rejected (cannot invent stock in quarantine)'
 );
 
@@ -126,6 +129,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Ledger posting with non-matching canonical unit is rejected'
 );
 
@@ -269,6 +273,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Overdrawing shelf balance rejected by check constraint on material_location_balances (on_hand_quantity >= 0)'
 );
 
