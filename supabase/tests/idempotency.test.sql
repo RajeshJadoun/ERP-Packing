@@ -34,6 +34,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Idempotency key under 16 characters rejected by chk_idempotency_key_format'
 );
 
@@ -48,6 +49,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Idempotency key containing spaces rejected by regex check'
 );
 
@@ -77,6 +79,7 @@ SELECT throws_ok(
     )
     $$,
     '23514',
+    NULL,
     'Unapproved resource_type rejected by chk_idempotency_keys_resource_type constraint'
 );
 
@@ -158,6 +161,7 @@ SELECT throws_ok(
     )
     $$,
     '23505',
+    NULL,
     'Reusing same key with altered payload hash throws conflict (SQLSTATE 23505)'
 );
 
