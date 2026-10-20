@@ -6,9 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt ./requirements.txt
+COPY requirements-runtime.txt ./requirements-runtime.txt
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -r requirements.txt \
+    && python -m pip install --no-cache-dir -r requirements-runtime.txt \
     && useradd --create-home --shell /usr/sbin/nologin appuser
 
 COPY --chown=appuser:appuser app ./app
