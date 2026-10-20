@@ -3,7 +3,7 @@
 -- =============================================================================
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap;
-SELECT plan(12);
+SELECT plan(13);
 
 SELECT has_column(
     'public', 'purchase_order_lines', 'unit_price',
@@ -126,6 +126,26 @@ SELECT is(
     ), 0::numeric),
     0::numeric,
     'Purchase order creation does not increase physical stock'
+);
+
+-- Dynamic categories remain data-driven: a new ADMIN-created category requires
+-- no application code changes and uses the existing authenticated RLS policy.
+SELECT set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000041', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SET LOCAL ROLE authenticated;
+INSERT INTO public.material_categories (code, name, description)
+VALUES (
+    'PHASE4_DYNAMIC_CATEGORY_ACCEPTANCE',
+    'Phase 4 Dynamic Category',
+    'Created through the authenticated master-data path without code changes'
+);
+RESET ROLE;
+
+SELECT is(
+    (SELECT count(*)::integer FROM public.material_categories
+     WHERE code = 'PHASE4_DYNAMIC_CATEGORY_ACCEPTANCE'),
+    1,
+    'Dynamic material category can be created through authenticated PostgREST-compatible RLS'
 );
 
 SELECT throws_ok(
