@@ -28,6 +28,7 @@ DECLARE
     v_parent_id uuid := 'f5000000-0000-4000-8000-000000000020';
     v_shelf_id uuid := 'f5000000-0000-4000-8000-000000000021';
     v_buffer_id uuid := 'f5000000-0000-4000-8000-000000000022';
+    v_quarantine_id uuid := 'f5000000-0000-4000-8000-000000000023';
     v_adjustment_id uuid := 'f5000000-0000-4000-8000-000000000030';
     v_converted_adjustment_id uuid := 'f5000000-0000-4000-8000-000000000031';
 BEGIN
@@ -61,7 +62,8 @@ BEGIN
     INSERT INTO public.locations (id, location_code, name, parent_location_id, location_type, is_leaf, is_active)
     VALUES
         (v_shelf_id, 'P5-SHELF', 'Phase 5 Test Shelf', v_parent_id, 'STORE_SHELF', true, true),
-        (v_buffer_id, 'P5-BUFFER', 'Phase 5 Test Buffer', v_parent_id, 'SHOP_FLOOR_BUFFER', true, true)
+        (v_buffer_id, 'P5-BUFFER', 'Phase 5 Test Buffer', v_parent_id, 'SHOP_FLOOR_BUFFER', true, true),
+        (v_quarantine_id, 'P5-QUARANTINE', 'Phase 5 Test Quarantine', v_parent_id, 'DAMAGE_QUARANTINE', true, true)
     ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO public.materials (id, material_code, name, category_id, canonical_unit_id, is_active)
