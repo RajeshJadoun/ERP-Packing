@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from flask import g
+from pydantic import ValidationError
 
 from app.errors import ApiError
 from app.idempotency import IdempotencyContext
@@ -121,7 +122,7 @@ def test_reopen_closing_calls_dedicated_admin_rpc(app, monkeypatch, idem):
 
 
 def test_reschedule_requires_target_date_and_shift():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         PendingDispositionInput.model_validate({
             "packingJobId": str(uuid4()),
             "disposition": "RESCHEDULE",
@@ -130,7 +131,7 @@ def test_reschedule_requires_target_date_and_shift():
 
 
 def test_close_override_requires_reason():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         ExecuteDailyCloseInput.model_validate({
             "dailyPlanId": str(uuid4()),
             "shiftCode": "shift_a",

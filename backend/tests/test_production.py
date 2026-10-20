@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from flask import g
+from pydantic import ValidationError
 
 from app.errors import ApiError
 from app.idempotency import IdempotencyContext
@@ -178,7 +179,7 @@ def test_get_production_completion_maps_consumption_and_ledger(app, monkeypatch)
 
 
 def test_completion_request_rejects_actual_usage_with_theoretical_policy():
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         RecordProductionCompletionInput.model_validate({
             "packingJobId": str(uuid4()),
             "completedUnits": 530,
