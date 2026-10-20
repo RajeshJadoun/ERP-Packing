@@ -2,7 +2,7 @@
 
 **Project:** Packing Material Inventory & BOM Management System  
 **Document Version:** 1.17.0  
-**Status:** Phase 7 verified. Phase 8 frontend verified (cloud deployment gated). Phase 9 reporting views, authenticated Flask endpoints, strict parameter validation, responsive analytics UI, and CSV/PDF export verified. Phase 10 end-to-end verification suite completed covering all 5 operational pillars (101 backend tests passing, 35 frontend tests passing, 0 npm vulnerabilities, 0 Ruff errors). Operational walkthrough and acceptance matrix published in docs/SYSTEM_WALKTHROUGH.md.  
+**Status:** Phase 7 verified. Phase 8 frontend verified (cloud deployment gated). Phase 9 reporting views, authenticated Flask endpoints, strict parameter validation, responsive analytics UI, and CSV/PDF export verified. Phase 10 automated verification suite completed (101 backend tests, 35 frontend tests, 0 npm audit vulnerabilities, 0 Ruff errors). Phase 11 deployment packaging is in progress on branch `phase-11-production-readiness`: Dockerfiles, local Compose stack, health checks, and container-build CI have been added; cloud deployment and live user smoke tests still require hosting configuration and Supabase Auth provisioning. See `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`.  
 **Date:** 2026-10-20  
 
 ---
@@ -35,6 +35,7 @@ graph TD
     P7 --> P8[Phase 8: React + Vite + TypeScript Frontend SPA]
     P8 --> P9[Phase 9: Operational Reports & Analytic Views]
     P9 --> P10[Phase 10: End-to-End Verification & Walkthrough]
+    P10 --> P11[Phase 11: Production Deployment & Live Integration]
 ```
 
 ---
@@ -376,3 +377,38 @@ Operational walkthrough and acceptance matrix for all 18 core scenarios document
   - npm audit passes with 0 vulnerabilities.
 - **Acceptance Criteria:**
   - Fully verified, production-ready ERP system with zero failing tests, verified audit integrity, and unambiguous accounting of environment-dependent cloud tasks. All acceptance gates met.
+
+
+---
+
+### Phase 11: Production Deployment & Live Integration
+
+**Status (2026-10-20):** In progress on branch `phase-11-production-readiness`. Container packaging is implemented but awaiting CI validation. Supabase remains the authentication and database platform; this phase has no Supabase-removal scope and performs no live database schema changes.
+
+- **Scope:**
+  - Add a non-root Flask API container running under Gunicorn, with bounded worker/thread defaults and a health check.
+  - Add a multi-stage React/Vite build served through an unprivileged Nginx image with SPA route fallback and a health endpoint.
+  - Add Docker Compose for repeatable local integration at `http://localhost:8080` (frontend) and `http://localhost:5000/api/v1` (API).
+  - Keep secrets out of images, Git and browser assets; use only the public Supabase publishable/anon key in Vite build-time variables.
+  - Add CI to validate Compose configuration and build both images with placeholder public frontend configuration, without pushing to a registry.
+  - Prepare a deployment and live acceptance runbook covering Supabase Auth, JWT verification, CORS, initial admin bootstrap, operational journeys, and backup/recovery.
+- **Files added or changed:**
+  - `backend/Dockerfile`, `backend/.dockerignore`, `backend/requirements.txt`, `backend/.env.example`
+  - `frontend/Dockerfile`, `frontend/nginx.conf`, `frontend/.dockerignore`, root `.env.example`, root `.gitignore`
+  - `docker-compose.yml`, `.github/workflows/container-build.yml`
+  - `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`
+- **Required verification:**
+  - Compose configuration validates using example-only environment values.
+  - Frontend and backend image builds pass in CI without live credentials or registry push.
+  - With real project configuration, both container health checks pass and browser requests reach the authenticated Flask API.
+  - Test the full real-user flow: login, profile role resolution, master data, PO/GRN, stock ledger, BOM/planning, production completion, shift closing and analytics reports.
+  - Verify no signing secret, service-role key or database password appears in frontend assets, logs or source control.
+- **Acceptance criteria:**
+  - Local container stack starts and reports healthy when the valid Supabase project configuration is provided.
+  - Live hosted UI-to-API smoke test and role/RLS verification pass.
+  - Backup/recovery and hosting operation procedures are recorded.
+- **Gating dependencies / risks:**
+  - No hosting target or deployment credential has been provided in the repository context. Do not claim public deployment or live smoke testing until these are completed.
+  - The production API host must use an exact frontend origin allow-list and HTTPS. Vite frontend configuration is baked into the static bundle at build time, so changes to the public API URL require rebuilding the frontend image.
+  - First-admin provisioning must use a real Supabase Auth user and the guarded bootstrap procedure documented in `docs/SYSTEM_WALKTHROUGH.md`; no placeholder UUIDs or direct writes to Auth tables.
+- **Runbook:** `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`.

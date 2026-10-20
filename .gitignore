@@ -1,0 +1,28 @@
+# Environment secrets (keep examples under version control)
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local container and editor artifacts
+*.log
+.DS_Store
+.vscode/
+.idea/

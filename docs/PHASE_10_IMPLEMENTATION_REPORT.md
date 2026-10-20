@@ -215,9 +215,9 @@ Outcome: found 0 vulnerabilities (100% PASS)
    - *Reason:* No cloud hosting provider credentials (Vercel, Cloud Run, Render) or deployment tokens are configured in the current repository environment.
    - *Resolution:* When hosting accounts are provisioned, configure deployment secrets in GitHub Actions and execute deployment workflows.
 
-*(Note: Live Supabase Auth User Provisioning has been resolved; `admin@packing-erp.local` is provisioned and verified in `bkyzwdaazscsiocmefbn`)*
+*(Note: Live Supabase Auth User Provisioning has been resolved in the connected Supabase cloud project `bkyzwdaazscsiocmefbn`; `admin@packing-erp.local` is provisioned, verified, and active as `ADMIN`. For new environments or test user creation, follow the guarded initial-ADMIN bootstrap in `docs/SYSTEM_WALKTHROUGH.md` (Section 4): create users in Supabase Auth and promote via the guarded bootstrap transaction rather than inserting directly into `auth.users` or `public.profiles`.)*
 
 ### Recommended Next Action:
-1. Review the committed changes on branch `main`.
-2. Push commits `fea9bc8` and `92071d4` to `origin/main` using GitHub Desktop or `git push origin main`.
-3. Configure cloud hosting credentials for the frontend SPA and Flask API to perform the final public smoke test.
+1. Complete the merge of incoming Phase 11 deployment readiness changes into `main`.
+2. Verify all quality gates (backend tests, frontend tests, and container build configuration).
+3. Configure cloud hosting credentials for the frontend SPA and Flask API to perform the final public smoke test as outlined in `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`.
