@@ -47,6 +47,16 @@ The Phase 4-specific pgTAP suite has 16 assertions. The database job applies the
 
 ## Migration & deployment status
 
-Migration `20261020000006_phase_4_purchasing_rpc.sql` is included in the repository. It has **not yet been applied to the linked Supabase project** and the application has **not been deployed**. Apply the migration only after the code PR is merged and then verify the remote migration ledger/schema.
+Migration `20261020000006_phase_4_purchasing_rpc.sql` has been merged and applied to the linked Supabase project (`PACKING ERP`, `bkyzwdaazscsiocmefbn`, `ap-south-1`). The remote migration ledger records `20261020000006_phase_4_purchasing_rpc`.
+
+Post-apply checks against the linked project confirmed:
+
+- The `purchase_order_lines.unit_price` column exists.
+- `authenticated` cannot directly insert purchase order headers or lines.
+- `authenticated` can execute the new `rpc_create_purchase_order` RPC.
+- The `goods_receipts` validation trigger is installed.
+- The RPC is `SECURITY DEFINER` with an empty `search_path`.
+
+The application/backend itself has **not been deployed**. Supabase advisor notices remain consistent with the previous security model: the two idempotency tables intentionally have no direct RLS policies (fail-closed), authenticated RPCs use explicit server-side role checks, and unused-index notices remain on the relatively fresh database. Re-evaluate unused indexes after meaningful production workload rather than removing them pre-emptively.
 
 This is the first Phase 4 purchasing slice, not the completion of every later ERP phase. BOM/planning, stock movement APIs, production, closing, reporting and frontend work remain in the roadmap.
