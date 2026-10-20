@@ -325,7 +325,7 @@ CREATE OR REPLACE FUNCTION public.rpc_issue_to_worker(
     p_idempotency_key text,
     p_request_hash text,
     p_measurement_method text,
-    p_measurement_evidence text DEFAULT NULL
+    p_measurement_evidence text
 )
 RETURNS jsonb
 LANGUAGE plpgsql
