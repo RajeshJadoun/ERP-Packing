@@ -47,9 +47,15 @@ BEGIN
     SELECT id INTO v_cat_id FROM public.material_categories WHERE code = 'POLY_BAG';
     SELECT id INTO v_cat_box_id FROM public.material_categories WHERE code = 'CORRUGATED_BOX';
 
+    INSERT INTO auth.users (id, email)
+    VALUES (v_admin_id, 'purchasing_admin@packing.test')
+    ON CONFLICT (id) DO NOTHING;
+
+    ALTER TABLE public.profiles DISABLE TRIGGER trg_protect_profile_role_before_update;
     INSERT INTO public.profiles (id, full_name, role, is_active)
     VALUES (v_admin_id, 'Purchasing Admin', 'ADMIN', true)
     ON CONFLICT (id) DO UPDATE SET role = 'ADMIN', is_active = true;
+    ALTER TABLE public.profiles ENABLE TRIGGER trg_protect_profile_role_before_update;
 
     INSERT INTO public.vendors (id, vendor_code, name)
     VALUES (v_vendor_id, 'VEND-PURCH-01', 'Premier Packaging Corp');
