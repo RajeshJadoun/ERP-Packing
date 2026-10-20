@@ -4,7 +4,6 @@ import httpx
 import pytest
 from flask import g
 
-from app.errors import ApiError
 from app.services.master_service import get_master_record, list_master_records, rest_select
 
 
