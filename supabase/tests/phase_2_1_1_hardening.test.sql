@@ -76,8 +76,8 @@ SELECT ok(
 );
 
 SELECT ok(
-    has_function_privilege('authenticated', 'public.rpc_cancel_packing_job(uuid,text)', 'EXECUTE'),
-    'authenticated role can call the authorized cancellation RPC'
+    has_function_privilege('authenticated', 'public.rpc_cancel_packing_job_api(uuid,text,text,text)', 'EXECUTE'),
+    'authenticated role can call the authorized idempotent cancellation API wrapper'
 );
 
 -- 7-8: Same-unit conversion is a no-op with an exact factor of one.
@@ -412,16 +412,17 @@ SELECT is(
     'Cancellation retry uses one permanent idempotency header'
 );
 
--- 31: Daily-plan policy correlation must target the parent plan id.
+-- 31: Phase 6 disables direct updates; the API routes now write through
+-- atomic SECURITY DEFINER RPCs so job creation/release remains all-or-nothing.
 SELECT ok(
-    position('pj.daily_plan_id = daily_plans.id' IN (
-        SELECT coalesce(qual, '') || ' ' || coalesce(with_check, '')
+    NOT EXISTS (
+        SELECT 1
         FROM pg_policies
         WHERE schemaname = 'public'
           AND tablename = 'daily_plans'
           AND policyname = 'daily_plans_update_draft_planner_admin'
-    )) > 0,
-    'Daily-plan update policy correlates linked jobs to the actual parent plan'
+    ),
+    'Direct daily-plan update policy is removed in favor of transactional RPCs'
 );
 
 SELECT * FROM finish();
