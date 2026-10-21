@@ -836,15 +836,16 @@ cd frontend
 npm run test:e2e
 
 # Method B: Using unified python runner with health checks
-python scripts/run_e2e.py --env staging --expected-project-ref YOUR_STAGING_PROJECT_REF --base-url http://127.0.0.1:4173 --api-url http://127.0.0.1:5000/api/v1 --allow-mutations
+python scripts/run_e2e.py --env staging --expected-project-ref YOUR_STAGING_PROJECT_REF --base-url http://127.0.0.1:4173 --api-url http://127.0.0.1:5000/api/v1 --allow-mutations --seed
 ```
 
 ### 6.5 Safe Teardown & Database Cleanup
 
-Cleanup command bhi exact staging project ref require karti hai aur agar TEST-E2E materials se stock-ledger transactions linked hon to abort ho jaati hai. Ledger history ko delete na karein; end-to-end acceptance ke baad disposable staging project ko separately remove karne ka decision lein.
+Cleanup command exact staging project ref require karti hai aur agar TEST-E2E materials se stock-ledger transactions linked hon to abort ho jaati hai. Agar test workflow ne ledger entries banayi hain, in entries ko delete karne ki koshish na karein; isolated staging project ko baad mein remove karna safer hai. Ledger history ko delete na karein; end-to-end acceptance ke baad disposable staging project ko separately remove karne ka decision lein.
 
 ```powershell
-# Strict safety guard: E2E_ALLOW_MUTATIONS must be explicitly passed
+# Set this to the exact staging project ref (must match DATABASE_URL host or username).
+$env:E2E_EXPECTED_SUPABASE_REF="YOUR_STAGING_PROJECT_REF"
 python scripts/cleanup_test_data.py --env staging --allow-cleanup
 ```
 
