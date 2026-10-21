@@ -6,6 +6,11 @@ on:
     paths:
       - ".github/workflows/authenticated-staging-e2e.yml"
       - "frontend/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/authenticated-staging-e2e.yml"
+      - "frontend/**"
   workflow_dispatch:
 
 permissions:
@@ -17,6 +22,8 @@ concurrency:
 
 jobs:
   authenticated-staging-e2e:
+    # Never expose staging credentials to pull requests from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Allows secrets stored either at repo level or in the GitHub "staging" environment.
     environment: staging
     runs-on: ubuntu-latest
