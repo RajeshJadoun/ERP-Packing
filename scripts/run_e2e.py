@@ -42,7 +42,6 @@ def run_tests(args: argparse.Namespace) -> int:
         print("[!] Refusing E2E execution unless --env staging is explicitly provided.", file=sys.stderr)
         return 2
 
-    mutating = args.allow_mutations or args.seed or args.cleanup
     if not args.expected_project_ref:
         print(
             "[!] Refusing E2E execution without --expected-project-ref "
