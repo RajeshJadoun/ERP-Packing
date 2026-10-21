@@ -1,0 +1,44 @@
+name: Staging Smoke Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/playwright.config.ts"
+      - "frontend/e2e/smoke.spec.ts"
+      - "frontend/e2e/staging-api-health.spec.ts"
+      - ".github/workflows/staging-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      E2E_BASE_URL: https://packing-erp-staging-frontend.onrender.com
+      E2E_API_URL: https://packing-erp-staging-api.onrender.com/api/v1
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify staging frontend and API
+        run: npx playwright test e2e/smoke.spec.ts e2e/staging-api-health.spec.ts
