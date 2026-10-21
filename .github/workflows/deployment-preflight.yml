@@ -1,0 +1,42 @@
+name: Deployment Preflight Checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/deployment_preflight.py"
+      - "backend/Dockerfile"
+      - "render.yaml"
+      - "scripts/test_deployment_preflight.py"
+      - ".github/workflows/deployment-preflight.yml"
+      - "docs/PHASE_12_DEPLOYMENT_PREFLIGHT_PLAN.md"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/deployment_preflight.py"
+      - "backend/Dockerfile"
+      - "render.yaml"
+      - "scripts/test_deployment_preflight.py"
+      - ".github/workflows/deployment-preflight.yml"
+      - "docs/PHASE_12_DEPLOYMENT_PREFLIGHT_PLAN.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run deployment preflight tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Validate Render Blueprint YAML syntax
+        run: ruby -e 'require "yaml"; YAML.parse_file("render.yaml")'
+      - name: Verify CLI help
+        run: python scripts/deployment_preflight.py --help

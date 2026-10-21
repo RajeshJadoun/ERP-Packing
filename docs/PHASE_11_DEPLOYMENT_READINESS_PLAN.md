@@ -1,14 +1,14 @@
 # Phase 11 — Production Deployment & Live Integration
 
 **Project:** Packing Material Inventory & BOM Management ERP  
-**Status:** In progress — deployment packaging and container CI are staged on `phase-11-production-readiness`; live cloud deployment is not yet complete.  
+**Status:** Phase 11 was merged into `main` on 2026-10-20. GitHub Actions passed backend, frontend, database, and container-build workflows for the Phase 11 commit; live cloud deployment and production user smoke tests remain pending.  
 **Supabase:** Retained as the authentication and hosted PostgreSQL/PostgREST platform. No Supabase removal or destructive schema change is in scope.
 
 ## 1. Phase objective
 
 Move the existing, tested React + Flask + Supabase application toward repeatable deployment while preserving existing business logic and database protections. This phase begins with container packaging and local production-like integration; cloud rollout remains gated on the chosen hosting target and its credentials.
 
-## 2. Work implemented in this phase branch
+## 2. Work merged to main in this phase
 
 - Added a multi-stage React/Vite build served by an unprivileged Nginx container, including SPA route fallback, health endpoint and basic response security headers.
 - Added a Flask API image running under a non-root OS account with Gunicorn, bounded worker configuration and a health check.
@@ -78,8 +78,8 @@ The real hosting provider is not configured in this repository yet. Before publi
 
 ## 6. Acceptance criteria
 
-- [ ] Docker Compose configuration validates using example environment files.
-- [ ] Both containers build successfully in CI with placeholders (no secrets and no registry push).
+- [x] Docker Compose configuration validates using example environment files in CI.
+- [x] Both containers build successfully in CI with placeholders (no secrets and no registry push).
 - [ ] Local frontend and API health checks become healthy with valid Supabase project configuration.
 - [ ] A real Supabase Auth account signs in and its server-resolved role is enforced.
 - [ ] A complete browser-to-Flask-to-Supabase smoke test passes against a deployed HTTPS environment.
@@ -88,4 +88,4 @@ The real hosting provider is not configured in this repository yet. Before publi
 
 ## 7. Current limitations
 
-This branch does not claim that the Docker images have already passed CI, that a local environment has been configured, that an Auth user has been provisioned, or that anything has been deployed. The first two items will be verified by the GitHub Actions run for this phase. Cloud provisioning and live smoke tests require a selected hosting target and owner-provided credentials; those actions are intentionally not simulated.
+The Phase 11 Docker Compose validation and both container image builds passed in GitHub Actions for the merged Phase 11 commit. A local environment has not been configured or exercised by this workflow. A hosted Auth user and a public service are not implied by CI success. Cloud provisioning, real sign-in, browser-to-API smoke tests, backup/restore verification, and public deployment still require a selected hosting target and owner-controlled credentials; those actions are intentionally not simulated.

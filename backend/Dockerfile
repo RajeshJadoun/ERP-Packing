@@ -15,9 +15,9 @@ COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser run.py ./run.py
 
 USER appuser
-EXPOSE 5000
+EXPOSE 10000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/v1/health', timeout=4).read()" || exit 1
+  CMD python -c "import os, urllib.request; port=os.getenv('PORT') or os.getenv('APP_PORT','5000'); urllib.request.urlopen(f'http://127.0.0.1:{port}/api/v1/health', timeout=4).read()" || exit 1
 
-CMD ["sh", "-c", "exec gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --bind 0.0.0.0:${APP_PORT:-5000} --timeout 60 --access-logfile - --error-logfile - run:app"]
+CMD ["sh", "-c", "exec gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --bind 0.0.0.0:${PORT:-${APP_PORT:-5000}} --timeout 60 --access-logfile - --error-logfile - run:app"]
