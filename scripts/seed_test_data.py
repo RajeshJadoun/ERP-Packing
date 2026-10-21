@@ -35,6 +35,19 @@ def get_db_url() -> str:
     raise RuntimeError("DATABASE_URL not found in environment or backend/.env")
 
 
+def assert_expected_staging_database(db_url: str, parsed_url) -> None:
+    expected_ref = os.environ.get("E2E_EXPECTED_SUPABASE_REF", "").strip()
+    if not expected_ref:
+        raise PermissionError(
+            "E2E_EXPECTED_SUPABASE_REF must identify the exact staging project before any writes."
+        )
+    target_identity = f"{parsed_url.hostname or ''} {parsed_url.username or ''}".lower()
+    if expected_ref.lower() not in target_identity:
+        raise PermissionError(
+            "Database target does not match E2E_EXPECTED_SUPABASE_REF; refusing to write."
+        )
+
+
 def seed_data(allow_mutations: bool = False, env_name: str = "") -> dict[str, str]:
     if env_name.lower() != "staging":
         raise PermissionError(
@@ -49,7 +62,8 @@ def seed_data(allow_mutations: bool = False, env_name: str = "") -> dict[str, st
 
     db_url = get_db_url()
     parsed = urlparse(db_url)
-    print(f"[*] Connecting to test database: {parsed.hostname}:{parsed.port}{parsed.path}")
+    assert_expected_staging_database(db_url, parsed)
+    print(f"[*] Connecting to verified staging database: {parsed.hostname}:{parsed.port}{parsed.path}")
 
     created: dict[str, str] = {}
 
