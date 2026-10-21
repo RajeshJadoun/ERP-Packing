@@ -2,7 +2,7 @@
 
 **Project:** Packing Material Inventory & BOM Management System  
 **Document Version:** 1.17.0  
-**Status:** Phase 7 verified. Phase 8 frontend verified (live deployment gated). Phase 9 reporting and Phase 10 automated verification completed (101 backend tests, 35 frontend tests, 0 npm audit vulnerabilities, 0 Ruff errors). Phase 11 Docker packaging, Compose validation, and container builds merged to `main`; backend, frontend, database, and container CI passed for the Phase 11 commit. Phase 12 adds deployment environment preflight tooling; public cloud deployment and real-user smoke tests still require a selected hosting target and owner-controlled configuration. See `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md` and `docs/PHASE_12_DEPLOYMENT_PREFLIGHT_PLAN.md`.  
+**Status:** Phase 7 verified. Phase 8 frontend verified (live deployment gated). Phase 9 reporting and Phase 10 automated verification completed (101 backend tests, 35 frontend tests, 0 npm audit vulnerabilities, 0 Ruff errors). Phase 11 Docker packaging, Compose validation, and container builds merged to main; CI passed for the Phase 11 commit. Phase 12 adds environment preflight checks and a Render Free functional-testing Blueprint; after staging end-to-end validation, the planned deployment target is a VPS. Public staging smoke tests remain dependent on owner-controlled service configuration. See docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md and docs/PHASE_12_DEPLOYMENT_PREFLIGHT_PLAN.md.  
 **Date:** 2026-10-20  
 
 ---
@@ -412,3 +412,14 @@ Operational walkthrough and acceptance matrix for all 18 core scenarios document
   - The production API host must use an exact frontend origin allow-list and HTTPS. Vite frontend configuration is baked into the static bundle at build time, so changes to the public API URL require rebuilding the frontend image.
   - First-admin provisioning must use a real Supabase Auth user and the guarded bootstrap procedure documented in `docs/SYSTEM_WALKTHROUGH.md`; no placeholder UUIDs or direct writes to Auth tables.
 - **Runbook:** `docs/PHASE_11_DEPLOYMENT_READINESS_PLAN.md`.
+
+
+## Phase 12: Render Free Functional Testing → VPS Migration
+
+- Use Render Free for staging only: one static React/Vite service and one Docker-based Flask/Gunicorn API.
+- Keep Supabase Auth and hosted PostgreSQL as the data source; prefer a separate staging Supabase project for test transactions.
+- Use render.yaml to define services without storing credentials. Configure the frontend publishable/anon key and API base URL at build time; keep JWT signing material and database credentials backend-only.
+- The API container binds to Render's injected PORT and falls back to APP_PORT for local Docker Compose.
+- Run functional end-to-end checks for authentication/roles, catalogs, PO/GRN, stock ledger, BOM/planning, production/closing, reports, RLS denial, and idempotent replay. Document cold starts and do not infer production load capacity from free-tier tests.
+- After acceptance, deploy the same reviewed commit to a Linux VPS with Docker Compose, domain/DNS, HTTPS reverse proxy, firewall, backups/restore, rollback and server-side secrets. Keep Supabase hosted in this first move; a database migration is separate approved work.
+- No automatic live deployment, credential provisioning, or database writes are performed by the Blueprint file or CI alone.

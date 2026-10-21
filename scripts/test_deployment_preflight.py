@@ -123,5 +123,23 @@ class DeploymentValidationTests(unittest.TestCase):
         )
 
 
+
+class RenderDeploymentConfigTests(unittest.TestCase):
+    def test_render_blueprint_uses_free_services_and_keeps_database_in_supabase(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        blueprint = (root / "render.yaml").read_text(encoding="utf-8")
+        self.assertIn("name: packing-erp-api", blueprint)
+        self.assertIn("plan: free", blueprint)
+        self.assertIn("name: packing-erp-frontend", blueprint)
+        self.assertIn("runtime: static", blueprint)
+        self.assertIn("SUPABASE_URL", blueprint)
+        self.assertNotIn("  databases:", blueprint)
+
+    def test_backend_dockerfile_uses_render_port_with_compose_fallback(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        dockerfile = (root / "backend" / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("${PORT:-${APP_PORT:-5000}}", dockerfile)
+        self.assertIn("os.getenv('PORT') or os.getenv('APP_PORT','5000')", dockerfile)
+
 if __name__ == "__main__":
     unittest.main()
