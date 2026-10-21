@@ -43,9 +43,9 @@ def run_tests(args: argparse.Namespace) -> int:
         return 2
 
     mutating = args.allow_mutations or args.seed or args.cleanup
-    if mutating and not args.expected_project_ref:
+    if not args.expected_project_ref:
         print(
-            "[!] Refusing database/test mutations without --expected-project-ref "
+            "[!] Refusing E2E execution without --expected-project-ref "
             "(the Supabase staging project ref).",
             file=sys.stderr,
         )
@@ -55,10 +55,10 @@ def run_tests(args: argparse.Namespace) -> int:
         LIVE_FRONTEND_HOST in args.base_url.lower()
         or LIVE_API_HOST in args.api_url.lower()
     )
-    if mutating and live_target:
+    if live_target:
         print(
-            "[!] Refusing test mutations against the shared Render application. "
-            "Use a local or dedicated staging frontend/API URL.",
+            "[!] Refusing E2E execution against the shared Render application. "
+            "Use the local app or a dedicated staging frontend/API URL.",
             file=sys.stderr,
         )
         return 2
@@ -110,6 +110,8 @@ def run_tests(args: argparse.Namespace) -> int:
         cmd.append("--headed")
 
     print(f"\n[*] Executing Playwright suite: {' '.join(cmd)}")
+    if os.name == "nt":
+        cmd = ["cmd.exe", "/c", *cmd]
     result = subprocess.run(cmd, cwd=FRONTEND_DIR, env=env, shell=False)
 
     # 4. Optional Cleanup
