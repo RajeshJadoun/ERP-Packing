@@ -33,9 +33,9 @@ export const test = base.extend<AuthFixtures>({
       await page.fill("input[type='password']", password);
       await page.click("button[type='submit']");
       await page.waitForSelector(".app-shell, .sidebar, .user-profile", { timeout: 20000 });
-      // Save state for remaining tests
+      // Save state for remaining tests. Playwright's BrowserContext API uses camelCase.
       fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
-      await context.storage_state({ path: AUTH_FILE });
+      await context.storageState({ path: AUTH_FILE });
       await use(page);
       await context.close();
     } else {
