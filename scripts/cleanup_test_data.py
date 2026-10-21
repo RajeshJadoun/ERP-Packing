@@ -30,6 +30,19 @@ def get_db_url() -> str:
     raise RuntimeError("DATABASE_URL not found in environment or backend/.env")
 
 
+def assert_expected_staging_database(db_url: str, parsed_url) -> None:
+    expected_ref = os.environ.get("E2E_EXPECTED_SUPABASE_REF", "").strip()
+    if not expected_ref:
+        raise PermissionError(
+            "E2E_EXPECTED_SUPABASE_REF must identify the exact staging project before any writes."
+        )
+    target_identity = f"{parsed_url.hostname or ''} {parsed_url.username or ''}".lower()
+    if expected_ref.lower() not in target_identity:
+        raise PermissionError(
+            "Database target does not match E2E_EXPECTED_SUPABASE_REF; refusing cleanup."
+        )
+
+
 def cleanup_test_data(allow_cleanup: bool = False, env_name: str = "") -> dict[str, int]:
     if env_name.lower() != "staging":
         raise PermissionError(
@@ -42,7 +55,8 @@ def cleanup_test_data(allow_cleanup: bool = False, env_name: str = "") -> dict[s
 
     db_url = get_db_url()
     parsed = urlparse(db_url)
-    print(f"[*] Connecting to test database for cleanup: {parsed.hostname}:{parsed.port}{parsed.path}")
+    assert_expected_staging_database(db_url, parsed)
+    print(f"[*] Connecting to verified staging database for cleanup: {parsed.hostname}:{parsed.port}{parsed.path}")
 
     counts: dict[str, int] = {}
 
@@ -56,7 +70,10 @@ def cleanup_test_data(allow_cleanup: bool = False, env_name: str = "") -> dict[s
             """)
             st_count = cur.fetchone()[0]
             if st_count > 0:
-                print(f"[!] Warning: {st_count} stock transactions reference TEST-E2E materials.")
+                raise RuntimeError(
+                    f"Cleanup refused: {st_count} authoritative stock transactions reference TEST-E2E materials. "
+                    "Do not delete ledger history; after acceptance, remove the disposable staging project instead."
+                )
 
             # 2. Delete test BOM lines and BOMs
             cur.execute("""
