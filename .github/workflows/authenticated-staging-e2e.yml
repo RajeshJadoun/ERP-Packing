@@ -1,6 +1,11 @@
 name: Authenticated Staging E2E
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/authenticated-staging-e2e.yml"
+      - "frontend/**"
   workflow_dispatch:
 
 permissions:
@@ -12,6 +17,8 @@ concurrency:
 
 jobs:
   authenticated-staging-e2e:
+    # Allows secrets stored either at repo level or in the GitHub "staging" environment.
+    environment: staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
