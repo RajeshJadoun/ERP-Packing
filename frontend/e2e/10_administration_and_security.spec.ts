@@ -1,5 +1,17 @@
 import { test, expect } from "./fixtures";
 
+const E2E_API_BASE_URL = (() => {
+  const value = (process.env.E2E_API_URL || "http://127.0.0.1:5000/api/v1").replace(/\/+$/, "");
+  const hostname = new URL(value).hostname.toLowerCase();
+  const allowedHosts = new Set(["127.0.0.1", "localhost", "packing-erp-staging-api.onrender.com"]);
+  if (!allowedHosts.has(hostname)) {
+    throw new Error(
+      `E2E safety guard: refusing API host "${hostname}". Use localhost or the dedicated staging API.`
+    );
+  }
+  return value;
+})();
+
 test.describe("Workflow J & Security — System Administration & Audit E2E", () => {
   test("administration console loads profiles, access controls and audit event log", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/admin");
@@ -37,8 +49,8 @@ test.describe("Workflow J & Security — System Administration & Audit E2E", () 
     }
   });
 
-  test("public health endpoint is live and confirms backend and database connectivity", async ({ request }) => {
-    const response = await request.get("https://packing-erp-api.onrender.com/api/v1/health");
+  test("staging or local API health endpoint confirms backend and database connectivity", async ({ request }) => {
+    const response = await request.get(`${E2E_API_BASE_URL}/health`);
     expect(response.status()).toBe(200);
     const body = await response.json();
     expect(body.status).toBe("HEALTHY");
@@ -47,27 +59,27 @@ test.describe("Workflow J & Security — System Administration & Audit E2E", () 
   });
 
   test("protected API endpoints reject unauthenticated requests with HTTP 401 UNAUTHORIZED", async ({ request }) => {
-    // Authenticated GET endpoints
+    // These endpoints are deliberately unauthenticated; no production host is allowed by the guard above.
     const getEndpoints = [
-      "/api/v1/stock/balances",
-      "/api/v1/stock/ledger",
-      "/api/v1/stock/worker-custody",
-      "/api/v1/reports/stock",
+      "/stock/balances",
+      "/stock/ledger",
+      "/stock/worker-custody",
+      "/reports/stock",
     ];
     for (const ep of getEndpoints) {
-      const response = await request.get(`https://packing-erp-api.onrender.com${ep}`);
+      const response = await request.get(`${E2E_API_BASE_URL}${ep}`);
       expect(response.status()).toBe(401);
       const json = await response.json();
       expect(json.error.code).toBe("UNAUTHORIZED");
     }
 
-    // Authenticated POST endpoints
+    // Authenticated POST endpoints; empty payload should fail before any write.
     const postEndpoints = [
-      "/api/v1/boms",
-      "/api/v1/daily-plans",
+      "/boms",
+      "/daily-plans",
     ];
     for (const ep of postEndpoints) {
-      const response = await request.post(`https://packing-erp-api.onrender.com${ep}`, {
+      const response = await request.post(`${E2E_API_BASE_URL}${ep}`, {
         data: {},
       });
       expect(response.status()).toBe(401);
@@ -76,4 +88,3 @@ test.describe("Workflow J & Security — System Administration & Audit E2E", () 
     }
   });
 });
-
