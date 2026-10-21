@@ -2,8 +2,8 @@
 
 > **Document Type:** Master Operational & Quality Engineering Deliverable  
 > **Repository:** [RajeshJadoun/ERP-Packing](https://github.com/RajeshJadoun/ERP-Packing)  
-> **Branch:** `qa/e2e-testing-and-hinglish-guide`  
-> **Commit SHA:** `d0743201787c198d5b7cdd5525ad380ebea6ceb7`  
+> **Branch:** `main` (merged from `qa/e2e-testing-and-hinglish-guide`)  
+> **Commit SHA:** `3fb5b2b64e86d0e0a5aaaa9d77c325221f38479e`  
 > **Live Web Application (Frontend):** [https://packing-erp-frontend.onrender.com](https://packing-erp-frontend.onrender.com)  
 > **Live API Service (Backend):** [https://packing-erp-api.onrender.com/api/v1](https://packing-erp-api.onrender.com/api/v1)  
 > **Database Host:** Supabase PostgreSQL 17 (`aws-0-ap-south-1.pooler.supabase.com:6543/postgres`, Project `bkyzwdaazscsiocmefbn`)  
@@ -759,7 +759,8 @@ Is section mein E2E environment ko setup, seed, execute aur cleanup karne ke ste
 
 ```bash
 # 1. Repository clone karein aur QA branch check out karein
-git checkout qa/e2e-testing-and-hinglish-guide
+git checkout main
+ git pull origin main
 
 # 2. Python backend virtual environment active karein
 python -m venv .venv
@@ -775,11 +776,13 @@ cd ..
 
 ### 6.2 Database Seeding Execution
 
-Test database mein isolated `TEST-E2E-` records create karne ke liye:
+Sirf dedicated staging database use karein. `DATABASE_URL` ko staging project par configure karna mandatory hai; production-intended project ka connection string use na karein. Seeder exact project ref verify karta hai.
 
-```bash
+```powershell
 # PowerShell / Bash terminal:
-python scripts/seed_test_data.py
+# DATABASE_URL must point to the dedicated staging database, never the operational project.
+$env:E2E_EXPECTED_SUPABASE_REF="YOUR_STAGING_PROJECT_REF"
+python scripts/seed_test_data.py --env staging --allow-mutations
 ```
 
 **Expected Seeder Output:**
@@ -833,16 +836,17 @@ cd frontend
 npm run test:e2e
 
 # Method B: Using unified python runner with health checks
-python scripts/run_e2e.py --env staging --allow-mutations
+python scripts/run_e2e.py --env staging --expected-project-ref YOUR_STAGING_PROJECT_REF --base-url http://127.0.0.1:4173 --api-url http://127.0.0.1:5000/api/v1 --allow-mutations --seed
 ```
 
 ### 6.5 Safe Teardown & Database Cleanup
 
-Testing complete hone ke baad test records ko database se safe remove karne ke liye:
+Cleanup command exact staging project ref require karti hai aur agar TEST-E2E materials se stock-ledger transactions linked hon to abort ho jaati hai. Agar test workflow ne ledger entries banayi hain, in entries ko delete karne ki koshish na karein; isolated staging project ko baad mein remove karna safer hai. Ledger history ko delete na karein; end-to-end acceptance ke baad disposable staging project ko separately remove karne ka decision lein.
 
-```bash
-# Strict safety guard: E2E_ALLOW_MUTATIONS must be explicitly passed
-python scripts/cleanup_test_data.py --env staging --allow-mutations
+```powershell
+# Set this to the exact staging project ref (must match DATABASE_URL host or username).
+$env:E2E_EXPECTED_SUPABASE_REF="YOUR_STAGING_PROJECT_REF"
+python scripts/cleanup_test_data.py --env staging --allow-cleanup
 ```
 
 ---
