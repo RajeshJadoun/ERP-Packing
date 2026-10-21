@@ -26,9 +26,9 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         launchOptions: {
-          executablePath:
-            process.env.CHROME_PATH ||
-            "C:/Users/singh/AppData/Local/ms-playwright/chromium-1248/chrome-win64/chrome.exe",
+          // Prefer Playwright-managed Chromium across Windows and Linux CI.
+          // Set CHROME_PATH only when using an explicitly managed browser binary.
+          ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}),
           args: ["--no-sandbox", "--disable-setuid-sandbox"]
         }
       },
