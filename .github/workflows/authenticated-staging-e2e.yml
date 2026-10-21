@@ -1,0 +1,95 @@
+name: Authenticated Staging E2E
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packing-erp-authenticated-staging-e2e
+  cancel-in-progress: false
+
+jobs:
+  authenticated-staging-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Exact staging target locks. Never point this workflow at the operational project/API.
+      E2E_ENV: staging
+      E2E_EXPECTED_SUPABASE_REF: pcrttrimxeoiabncnfan
+      E2E_ALLOW_MUTATIONS: "false"
+      E2E_BASE_URL: http://127.0.0.1:4173
+      E2E_API_URL: https://packing-erp-staging-api.onrender.com/api/v1
+      VITE_SUPABASE_URL: https://pcrttrimxeoiabncnfan.supabase.co
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+      VITE_API_BASE_URL: https://packing-erp-staging-api.onrender.com/api/v1
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets and exact staging target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$E2E_EXPECTED_SUPABASE_REF" = "pcrttrimxeoiabncnfan"
+          test "$VITE_SUPABASE_URL" = "https://pcrttrimxeoiabncnfan.supabase.co"
+          test "$E2E_BASE_URL" = "http://127.0.0.1:4173"
+          test "$E2E_API_URL" = "https://packing-erp-staging-api.onrender.com/api/v1"
+          test "$VITE_API_BASE_URL" = "https://packing-erp-staging-api.onrender.com/api/v1"
+          test -n "$VITE_SUPABASE_ANON_KEY"
+          test -n "$E2E_EMAIL"
+          test -n "$E2E_PASSWORD"
+          echo "Staging-only target checks passed; credentials were not printed."
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend with staging configuration
+        run: npm run build
+
+      - name: Start local preview and verify it is ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/packing-erp-vite-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              echo "Local staging-configured preview is ready."
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/packing-erp-vite-preview.log
+          echo "Preview failed to start." >&2
+          exit 1
+
+      - name: Run full browser E2E suite against isolated local preview and staging services
+        run: npx playwright test
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authenticated-staging-e2e-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
