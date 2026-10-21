@@ -26,3 +26,14 @@ frontend/coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Playwright & E2E artifacts
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
+.auth/
+e2e-artifacts/
