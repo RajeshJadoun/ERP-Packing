@@ -1,0 +1,69 @@
+name: Staging Operational Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_staging_mutations:
+        description: "Explicitly authorize TEST-E2E purchase, receipt, stock, production and closing transactions in staging only"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: packing-erp-staging-operational-acceptance
+  cancel-in-progress: false
+
+jobs:
+  operational-acceptance:
+    if: ${{ inputs.confirm_staging_mutations == true }}
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      E2E_ENV: staging
+      E2E_EXPECTED_SUPABASE_REF: pcrttrimxeoiabncnfan
+      E2E_API_URL: https://packing-erp-staging-api.onrender.com/api/v1
+      VITE_SUPABASE_URL: https://pcrttrimxeoiabncnfan.supabase.co
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+      E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      E2E_OPERATIONAL_ACCEPTANCE_ENABLED: ${{ inputs.confirm_staging_mutations && 'true' || 'false' }}
+      E2E_ALLOW_MUTATIONS: ${{ inputs.confirm_staging_mutations && 'true' || 'false' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify explicit authorization and exact staging target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$E2E_OPERATIONAL_ACCEPTANCE_ENABLED" = "true"
+          test "$E2E_ALLOW_MUTATIONS" = "true"
+          test "$E2E_ENV" = "staging"
+          test "$E2E_EXPECTED_SUPABASE_REF" = "pcrttrimxeoiabncnfan"
+          test "$VITE_SUPABASE_URL" = "https://pcrttrimxeoiabncnfan.supabase.co"
+          test "$E2E_API_URL" = "https://packing-erp-staging-api.onrender.com/api/v1"
+          test -n "$VITE_SUPABASE_ANON_KEY"
+          test -n "$E2E_EMAIL"
+          test -n "$E2E_PASSWORD"
+          echo "Explicit staging mutation gate and exact target verified; credentials were not printed."
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run one guarded operational acceptance scenario
+        run: npx playwright test e2e/12_operational_workflow_acceptance.spec.ts
