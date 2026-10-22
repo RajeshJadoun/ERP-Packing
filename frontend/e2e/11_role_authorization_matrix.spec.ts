@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+// Opt-in staging role checks: GitHub Environment variable E2E_ROLE_MATRIX_ENABLED must be true.
 import { test, expect } from "@playwright/test";
 
 const STAGING_PROJECT_REF = "pcrttrimxeoiabncnfan";
