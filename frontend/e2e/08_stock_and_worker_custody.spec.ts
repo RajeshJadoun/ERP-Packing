@@ -45,7 +45,7 @@ test.describe("Workflows F & H — Stock Ledger, Worker Custody & Quarantine E2E
 
     // Check issue form inputs
     await issueTab.click();
-    await expect(authenticatedPage.locator("label:has-text('Worker') select")).toBeVisible();
+    await expect(authenticatedPage.locator(".two-column-layout .card").first().locator("label.field").filter({ hasText: /^Worker/ }).locator("select")).toBeVisible();
     await expect(authenticatedPage.locator("label:has-text('Packing job') select")).toBeVisible();
     await expect(authenticatedPage.locator("label:has-text('Material') select")).toBeVisible();
   });
