@@ -3,14 +3,14 @@ import { test, expect } from "./fixtures";
 test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () => {
   test("shift closing console loads reconciliation metrics and closing history", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/closings");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Shift closing console");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Shift closing console");
     await expect(authenticatedPage.locator(".panel-tabs, .segmented-tabs")).toBeVisible();
 
     // Check tabs: Pending closings vs Closed history
     const historyTab = authenticatedPage.locator("button:has-text('Closing history')");
     if (await historyTab.isVisible()) {
       await historyTab.click();
-      await expect(authenticatedPage.locator(".data-table")).toBeVisible({ timeout: 10000 });
+      await expect(authenticatedPage.locator("table")).toBeVisible({ timeout: 10000 });
     }
   });
 
@@ -26,7 +26,7 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
 
   test("reports & analytics loads all six operational reporting views", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Operations analytics & reports");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Operations analytics & reports");
 
     // Check all 6 report tabs
     const tabs = [
@@ -50,7 +50,7 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
     await varianceTab.click();
 
     // The table should have headers for theoretical, physical and variance status
-    const table = authenticatedPage.locator(".data-table");
+    const table = authenticatedPage.locator("table");
     await expect(table).toBeVisible({ timeout: 10000 });
     const content = await table.textContent();
     expect(content?.toLowerCase()).toMatch(/theoretical|variance|status|quantity/i);
