@@ -3,6 +3,9 @@ import { test, expect } from "./fixtures";
 test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/daily-plans");
+    // Include seeded E2E plans from any shift; the shell defaults to Shift 1,
+    // which can legitimately hide fixtures assigned to General or Shift 2.
+    await authenticatedPage.locator("select[aria-label='Active shift']").selectOption("ALL");
   });
 
   test("loads daily plans console with shift metrics and plan table", async ({ authenticatedPage }) => {
