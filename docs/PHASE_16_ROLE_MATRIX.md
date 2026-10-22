@@ -21,7 +21,7 @@ Keep the existing staging secrets and add these four email/password pairs as **e
 
 The existing `E2E_EMAIL` / `E2E_PASSWORD` pair is used for the ADMIN test account. Do not put passwords in source control, test data, or chat.
 
-After all five account credentials work, add the environment variable `E2E_ROLE_MATRIX_ENABLED=true` to the staging environment and run **Actions → Authenticated Staging E2E → Run workflow**. Keep the workflow's locked staging project and API URLs unchanged.
+After all five account credentials work, add the environment variable `E2E_ROLE_MATRIX_ENABLED=true` to the staging environment and run **Actions → Authenticated Staging E2E → Run workflow**. Keep the workflow's locked staging project and API URLs unchanged. Environment values are read when a run starts; if an existing run logged `E2E_ROLE_MATRIX_ENABLED=false`, start a fresh run after changing it.
 
 When disabled, the role matrix is intentionally skipped so existing regression CI does not require additional secrets. When enabled, missing credentials or a non-staging target fail the suite.
 
