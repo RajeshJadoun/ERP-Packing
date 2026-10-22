@@ -136,7 +136,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   const addDays = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
   const planDate = addDays(1);
   const shiftCode = `E2E_${runToken}`;
-  const plannedUnits = 10;
+  const plannedUnits = 20;
   const receiptQuantities = new Map<string, number>();
 
   // Resolve the dedicated TEST-E2E fixtures only; never fall back to ordinary factory data.
@@ -215,11 +215,9 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
     expect(line.unit_id, "Phase 17 fixture BOM lines must use canonical units").toBe(material.canonical_unit_id);
     const requiredQty = Number(line.quantity_per_unit) * plannedUnits;
     expect(requiredQty, "test BOM material requirement must be a positive finite number").toBeGreaterThan(0);
-    receiptQuantities.set(line.material_id, Math.max(line.material_id === box.id ? 50 : 0, requiredQty * 3));
+    // Receive exactly the canonical requirement for this run so a successful cycle returns test stock to its baseline.
+    receiptQuantities.set(line.material_id, requiredQty);
   }
-  // These fixed fixture quantities keep the receipt meaningful and still cover each frozen BOM line.
-  receiptQuantities.set(box.id, Math.max(50, receiptQuantities.get(box.id) || 0));
-  receiptQuantities.set(tape.id, Math.max(5, receiptQuantities.get(tape.id) || 0));
 
   // 1. Purchase order — exercise create, replay, mismatch protection, and persisted retrieval.
   const poNumber = `TEST-E2E-PO-${runToken}`;
@@ -252,6 +250,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   expect(poDetail.poNumber).toBe(poNumber);
   expect(poDetail.status).toBe("DRAFT");
   expect(poDetail.lines).toHaveLength(2);
+  console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "purchase-order", runToken, purchaseOrderId: poCreated.id, purchaseOrderNumber: poNumber }));
 
   // Record baseline stock at the test shelf before posting the receipt.
   const shelfBeforeReceipt = new Map<string, number>();
@@ -344,6 +343,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   expect(grnDetail.status).toBe("POSTED");
   expect(grnDetail.lines.map((line: Row) => line.stockTransactionId).sort())
     .toEqual(grnPosted.lines.map((line: Row) => line.stockTransactionId).sort());
+  console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "goods-receipt-posted", runToken, goodsReceiptId: grnId, goodsReceiptNumber: grnNumber, stockTransactionIds: grnPosted.lines.map((line: Row) => line.stockTransactionId) }));
 
   // 3. Reuse the already-active test BOM and create a fresh, uniquely named daily plan.
   const bomDetail = await apiGet(context, `/boms/${bom.id}`);
@@ -367,6 +367,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   expect(planCreated.jobs).toHaveLength(1);
   const jobId = planCreated.jobs[0].id as string;
   expect(jobId).toBeTruthy();
+  console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "daily-plan-created", runToken, dailyPlanId: planCreated.id, packingJobId: jobId, bomId: bom.id }));
 
   const releaseResponse = await apiPost(
     context,
@@ -408,6 +409,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
     const issued = await expectStatus(issueResponse, 200, `issue ${material.material_code} to test worker`);
     expect(issued.stockTransactionId).toBeTruthy();
     issueTransactionIds.push(String(issued.stockTransactionId));
+    console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "stock-issued-to-worker", runToken, materialId: line.material_id, stockTransactionId: issued.stockTransactionId }));
     const issueReplayResponse = await apiPost(context, "/stock/issue-to-worker", issueKey, issueBody);
     const issueReplay = await expectStatus(issueReplayResponse, 200, `idempotent issue replay for ${material.material_code}`);
     expect(issueReplay.stockTransactionId).toBe(issued.stockTransactionId);
@@ -451,6 +453,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   const completionId = (completionCreated.id || completionCreated.completionId) as string;
   expect(completionId).toBeTruthy();
   expect(Number(completionCreated.completedUnits)).toBe(plannedUnits);
+  console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "production-completed", runToken, productionCompletionId: completionId, completedUnits: plannedUnits }));
 
   const completionReplayResponse = await apiPost(context, "/production/completions", completionKey, completionPayload);
   const completionReplay = await expectStatus(completionReplayResponse, 200, "idempotent production completion replay");
@@ -505,6 +508,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
   expect(Number(closingDetail.totalCompletedUnits)).toBe(plannedUnits);
   expect(Number(closingDetail.totalPendingUnits)).toBe(0);
   expect(Number(closingDetail.totalCancelledUnits)).toBe(0);
+  console.log("PHASE17_STEP_IDS", JSON.stringify({ step: "shift-closed", runToken, dailyClosingId: closingId, dailyPlanId: planCreated.id }));
   expect(
     Number(closingDetail.totalPlannedUnits),
   ).toBe(
