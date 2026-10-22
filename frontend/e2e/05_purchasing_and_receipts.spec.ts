@@ -17,7 +17,7 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     const newPoBtn = authenticatedPage.locator("button:has-text('New purchase order')");
     if (await newPoBtn.isVisible()) {
       await newPoBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Set order date tomorrow, delivery date today
@@ -39,7 +39,7 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     const newGrnBtn = authenticatedPage.locator("button:has-text('New goods receipt')");
     if (await newGrnBtn.isVisible()) {
       await newGrnBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Check form fields
@@ -66,7 +66,7 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     const newGrnBtn = authenticatedPage.locator("button:has-text('New goods receipt')");
     if (await newGrnBtn.isVisible()) {
       await newGrnBtn.click();
-      const note = authenticatedPage.locator(".form-note, .modal-dialog p");
+      const note = authenticatedPage.locator(".modal p, .form-note");
       const noteText = await note.first().textContent();
       expect(noteText?.toLowerCase()).toMatch(/provisional|canonical|database|recomputes|post/i);
     }
