@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () => {
   test("shift closing console loads reconciliation metrics and closing history", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/closings");
-    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Shift closing console");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Closing & material verification");
     await expect(authenticatedPage.locator(".panel-tabs, .segmented-tabs")).toBeVisible();
 
     // Check tabs: Pending closings vs Closed history
@@ -26,15 +26,15 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
 
   test("reports & analytics loads all six operational reporting views", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Operations analytics & reports");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Operations intelligence");
 
     // Check all 6 report tabs
     const tabs = [
       "Stock by location",
       "Worker custody",
-      "Material variance",
+      "Consumption variance",
       "Vendor history",
-      "Shift summary",
+      "Production by shift",
       "Worker output",
     ];
 
@@ -46,7 +46,7 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
 
   test("material variance report distinguishes unverified theoretical usage from verified counts", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    const varianceTab = authenticatedPage.locator("button:has-text('Material variance')");
+    const varianceTab = authenticatedPage.locator("button:has-text('Consumption variance')");
     await varianceTab.click();
 
     // The table should have headers for theoretical, physical and variance status
