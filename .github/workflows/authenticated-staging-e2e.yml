@@ -44,6 +44,16 @@ jobs:
       VITE_API_BASE_URL: https://packing-erp-staging-api.onrender.com/api/v1
       E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+      # Explicit opt-in OR all role credentials present; keeps the checks discoverable even if an environment variable was scoped incorrectly.
+      E2E_ROLE_MATRIX_ENABLED: ${{ (vars.E2E_ROLE_MATRIX_ENABLED == 'true' || secrets.E2E_ROLE_MATRIX_ENABLED == 'true' || (secrets.E2E_STOREKEEPER_EMAIL != '' && secrets.E2E_STOREKEEPER_PASSWORD != '' && secrets.E2E_PLANNER_EMAIL != '' && secrets.E2E_PLANNER_PASSWORD != '' && secrets.E2E_OPERATOR_EMAIL != '' && secrets.E2E_OPERATOR_PASSWORD != '' && secrets.E2E_VIEWER_EMAIL != '' && secrets.E2E_VIEWER_PASSWORD != '')) && 'true' || 'false' }}
+      E2E_STOREKEEPER_EMAIL: ${{ secrets.E2E_STOREKEEPER_EMAIL }}
+      E2E_STOREKEEPER_PASSWORD: ${{ secrets.E2E_STOREKEEPER_PASSWORD }}
+      E2E_PLANNER_EMAIL: ${{ secrets.E2E_PLANNER_EMAIL }}
+      E2E_PLANNER_PASSWORD: ${{ secrets.E2E_PLANNER_PASSWORD }}
+      E2E_OPERATOR_EMAIL: ${{ secrets.E2E_OPERATOR_EMAIL }}
+      E2E_OPERATOR_PASSWORD: ${{ secrets.E2E_OPERATOR_PASSWORD }}
+      E2E_VIEWER_EMAIL: ${{ secrets.E2E_VIEWER_EMAIL }}
+      E2E_VIEWER_PASSWORD: ${{ secrets.E2E_VIEWER_PASSWORD }}
 
     steps:
       - name: Check out repository
