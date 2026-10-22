@@ -22,6 +22,22 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     if (vendorOptions.length === 0) test.skip(true, "Staging has no active vendor fixture; backend bad-date validation is covered by test_purchasing.py.");
     await vendor.selectOption(vendorOptions[0]);
 
+    // Required line fields must be populated so native browser validation does
+    // not prevent the form's delivery-date validation from running.
+    const material = authenticatedPage.getByLabel("Material");
+    const materialOptions = await material.locator("option").evaluateAll(options =>
+      options.map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    );
+    if (materialOptions.length === 0) test.skip(true, "Staging has no active material fixture for the required PO line.");
+    await material.selectOption(materialOptions[0]);
+
+    const unit = authenticatedPage.getByLabel("Unit");
+    const unitOptions = await unit.locator("option").evaluateAll(options =>
+      options.map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    );
+    if (unitOptions.length === 0) test.skip(true, "Staging has no unit fixture for the required PO line.");
+    await unit.selectOption(unitOptions[0]);
+
     const orderDateInput = authenticatedPage.getByLabel("Order date");
     const deliveryDateInput = authenticatedPage.getByLabel("Expected delivery");
     await orderDateInput.fill("2026-11-10");
