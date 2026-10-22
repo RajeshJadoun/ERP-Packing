@@ -382,6 +382,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
 
   // 4. Issue the required canonical quantities to the dedicated test worker's custody location.
   const workerBalanceBeforeIssue = new Map<string, number>();
+  const issueTransactionIds: string[] = [];
   for (const line of requiredBomLines) {
     workerBalanceBeforeIssue.set(line.material_id, await readBalance(context, line.material_id, workerLocation.id));
   }
@@ -406,6 +407,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
     const issueResponse = await apiPost(context, "/stock/issue-to-worker", issueKey, issueBody);
     const issued = await expectStatus(issueResponse, 200, `issue ${material.material_code} to test worker`);
     expect(issued.stockTransactionId).toBeTruthy();
+    issueTransactionIds.push(String(issued.stockTransactionId));
     const issueReplayResponse = await apiPost(context, "/stock/issue-to-worker", issueKey, issueBody);
     const issueReplay = await expectStatus(issueReplayResponse, 200, `idempotent issue replay for ${material.material_code}`);
     expect(issueReplay.stockTransactionId).toBe(issued.stockTransactionId);
@@ -520,7 +522,7 @@ test("Phase 17 — persisted PO → GRN → Stock → BOM → Planning → Produ
     bomId: bom.id,
     dailyPlanId: planCreated.id,
     packingJobId: jobId,
-    issueTransactionIds: [...requiredBomLines].map((line) => line.material_id),
+    issueTransactionIds,
     productionCompletionId: completionId,
     dailyClosingId: closingId,
     stagingProjectRef: STAGING_PROJECT_REF,
