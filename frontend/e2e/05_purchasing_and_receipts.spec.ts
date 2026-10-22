@@ -6,7 +6,7 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
   });
 
   test("loads purchasing page with orders and receipts tabs", async ({ authenticatedPage }) => {
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Purchasing & goods receipt");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Purchasing & goods receipt");
     const ordersTab = authenticatedPage.locator(".panel-tabs button:has-text('Purchase orders')");
     const receiptsTab = authenticatedPage.locator(".panel-tabs button:has-text('Goods receipts')");
     await expect(ordersTab).toBeVisible();
