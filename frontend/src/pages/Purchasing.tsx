@@ -73,12 +73,14 @@ export function PurchasingPage({ role }: { role:string }) {
 
   const preparePreview=async()=>{
     setPreview(null);
-    const material=activeMaterials.find(m=>m.id===grnMaterial);
-    if(!material||!enteredUnit||Number(enteredQty)<=0)return;
     const entered=Number(enteredQty), rejected=Number(rejectedQty||0);
+    if(!Number.isFinite(entered)||entered<=0)throw new Error("Entered quantity must be greater than zero.");
+    if(!Number.isFinite(rejected)||rejected<0)throw new Error("Rejected quantity must be zero or greater.");
+    if(rejected>entered)throw new Error("Rejected quantity cannot exceed entered quantity.");
+    const material=activeMaterials.find(m=>m.id===grnMaterial);
+    if(!material||!enteredUnit)return;
     if(enteredUnit!==rejectedUnit&&rejected>0)throw new Error("For a draft GRN, received and rejected quantities must use the same unit. The server recalculates accepted quantity on posting.");
     const accepted=entered-rejected;
-    if(accepted<0)throw new Error("Rejected quantity cannot exceed entered quantity.");
     const canonicalUnit=String(material.canonical_unit_id);
     if(enteredUnit===canonicalUnit){setPreview({accepted,canonical:accepted,unit:unitRows.find(u=>u.id===canonicalUnit)?.code??"canonical",estimated:false,factor:1,direction:"NONE"});return;}
     const {data:direct}=await supabase.from("material_conversions").select("id,conversion_factor,is_exact,from_unit_id,to_unit_id").eq("material_id",grnMaterial).eq("from_unit_id",enteredUnit).eq("to_unit_id",canonicalUnit).is("effective_to",null).order("effective_from",{ascending:false}).limit(1).maybeSingle();

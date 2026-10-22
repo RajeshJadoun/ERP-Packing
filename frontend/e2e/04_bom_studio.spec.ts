@@ -6,12 +6,12 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
   });
 
   test("loads BOM studio with snapshot immutability banner and recipe table", async ({ authenticatedPage }) => {
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("BOM studio");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("BOM studio");
     await expect(authenticatedPage.locator(".bom-banner")).toContainText("Recipes are versioned, not overwritten");
     await expect(authenticatedPage.locator(".bom-banner .badge")).toContainText("Snapshot-safe");
 
     // Table should show recipes
-    const table = authenticatedPage.locator(".data-table");
+    const table = authenticatedPage.locator("table");
     await expect(table).toBeVisible({ timeout: 10000 });
   });
 
@@ -19,7 +19,7 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
     const searchBox = authenticatedPage.locator("input[placeholder*='Search']");
     await searchBox.fill("TEST-E2E");
 
-    const table = authenticatedPage.locator(".data-table");
+    const table = authenticatedPage.locator("table");
     await expect(table).toContainText("BOM-TEST-E2E-SKU-100", { timeout: 10000 });
     await expect(table).toContainText("v1");
     await expect(table).toContainText("ACTIVE");
@@ -38,7 +38,7 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
     await expect(authenticatedPage.locator(".version-chips")).toContainText("v1 · ACTIVE");
 
     // Check material lines inside viewer
-    const linesTable = authenticatedPage.locator(".panel-heading + .version-chips + .data-table, .data-table").last();
+    const linesTable = authenticatedPage.locator("table").last();
     const content = await linesTable.textContent();
     expect(content).toMatch(/carton|box|tape/i);
   });
@@ -47,7 +47,7 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
     const createBtn = authenticatedPage.locator("button:has-text('Create BOM')");
     if (await createBtn.isVisible()) {
       await createBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Submit without selecting product or variant

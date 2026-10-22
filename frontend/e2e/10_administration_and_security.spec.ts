@@ -15,7 +15,7 @@ const E2E_API_BASE_URL = (() => {
 test.describe("Workflow J & Security — System Administration & Audit E2E", () => {
   test("administration console loads profiles, access controls and audit event log", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/admin");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("System administration");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("System administration");
 
     // Guardrail badges and banner
     await expect(authenticatedPage.locator(".admin-banner")).toContainText("Administrator session verified");
@@ -23,11 +23,11 @@ test.describe("Workflow J & Security — System Administration & Audit E2E", () 
     await expect(authenticatedPage.locator(".security-list")).toContainText("Access changes are audited");
 
     // Profiles table
-    const profilesTable = authenticatedPage.locator(".data-table").first();
+    const profilesTable = authenticatedPage.locator("table").first();
     await expect(profilesTable).toBeVisible({ timeout: 10000 });
 
     // Audit logs table
-    const auditTable = authenticatedPage.locator(".data-table").last();
+    const auditTable = authenticatedPage.locator("table").last();
     await expect(auditTable).toBeVisible({ timeout: 10000 });
   });
 

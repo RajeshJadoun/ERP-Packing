@@ -3,19 +3,22 @@ import { test, expect } from "./fixtures";
 test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/daily-plans");
+    // Include seeded E2E plans from any shift; the shell defaults to Shift 1,
+    // which can legitimately hide fixtures assigned to General or Shift 2.
+    await authenticatedPage.locator("select[aria-label='Active shift']").selectOption("ALL");
   });
 
   test("loads daily plans console with shift metrics and plan table", async ({ authenticatedPage }) => {
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Daily packing plans");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Daily packing plans");
     await expect(authenticatedPage.locator(".metric-grid")).toBeVisible();
-    await expect(authenticatedPage.locator(".data-table")).toBeVisible({ timeout: 10000 });
+    await expect(authenticatedPage.locator("table")).toBeVisible({ timeout: 10000 });
   });
 
   test("create plan modal supports multiple jobs with master BOMs and custom recipes", async ({ authenticatedPage }) => {
     const createBtn = authenticatedPage.locator("button:has-text('Create daily plan')");
     if (await createBtn.isVisible()) {
       await createBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Check fields
@@ -40,10 +43,10 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
 
   test("loads job detail page and displays 5-variable quantity conservation invariant", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/daily-plans/jobs");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Packing job detail");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Packing job detail");
 
     // Table of jobs or message
-    const table = authenticatedPage.locator(".data-table");
+    const table = authenticatedPage.locator("table");
     await expect(table).toBeVisible({ timeout: 10000 });
 
     const openJobBtn = authenticatedPage.locator("button:has-text('Open →')").first();
@@ -68,7 +71,7 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
       const reviseBtn = authenticatedPage.locator("button:has-text('Revise target')");
       if (await reviseBtn.isVisible()) {
         await reviseBtn.click();
-        const modal = authenticatedPage.locator(".modal-dialog");
+        const modal = authenticatedPage.locator(".modal");
         await expect(modal).toBeVisible();
         await expect(modal.locator("h2, .modal-head")).toContainText("Revise authorized target");
         await expect(modal.locator("input[type='number']")).toBeVisible();

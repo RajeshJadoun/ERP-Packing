@@ -3,7 +3,7 @@ import { test, expect } from "./fixtures";
 test.describe("Workflows F & H — Stock Ledger, Worker Custody & Quarantine E2E", () => {
   test("stock page renders inventory balances and append-only ledger tabs", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/inventory/stock");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Stock & immutable ledger");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Stock & immutable ledger");
 
     // 4 metric cards
     await expect(authenticatedPage.locator(".metric-card")).toHaveCount(4);
@@ -35,7 +35,7 @@ test.describe("Workflows F & H — Stock Ledger, Worker Custody & Quarantine E2E
 
   test("worker custody page manages issue and return flows with active worker check", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/worker-custody");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Worker custody");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Worker custody");
 
     // Form tabs
     const issueTab = authenticatedPage.locator(".panel-tabs button:has-text('Issue to worker')");
@@ -45,14 +45,14 @@ test.describe("Workflows F & H — Stock Ledger, Worker Custody & Quarantine E2E
 
     // Check issue form inputs
     await issueTab.click();
-    await expect(authenticatedPage.locator("label:has-text('Worker') select")).toBeVisible();
+    await expect(authenticatedPage.getByRole("combobox", { name: "Worker *" })).toBeVisible();
     await expect(authenticatedPage.locator("label:has-text('Packing job') select")).toBeVisible();
     await expect(authenticatedPage.locator("label:has-text('Material') select")).toBeVisible();
   });
 
   test("quarantine console segregates damaged lots and protects scrap disposal", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/inventory/quarantine");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Quarantine & scrap disposal");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Quarantine & scrap disposal");
 
     const moveTab = authenticatedPage.locator(".panel-tabs button:has-text('Move to quarantine')");
     const scrapTab = authenticatedPage.locator(".panel-tabs button:has-text('Dispose of scrap')");

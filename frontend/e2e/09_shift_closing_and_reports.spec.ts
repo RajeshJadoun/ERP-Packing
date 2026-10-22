@@ -1,17 +1,13 @@
 import { test, expect } from "./fixtures";
 
 test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () => {
-  test("shift closing console loads reconciliation metrics and closing history", async ({ authenticatedPage }) => {
+  test("shift closing console loads reconciliation metrics, released plans and closing history", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/closings");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Shift closing console");
-    await expect(authenticatedPage.locator(".panel-tabs, .segmented-tabs")).toBeVisible();
-
-    // Check tabs: Pending closings vs Closed history
-    const historyTab = authenticatedPage.locator("button:has-text('Closing history')");
-    if (await historyTab.isVisible()) {
-      await historyTab.click();
-      await expect(authenticatedPage.locator(".data-table")).toBeVisible({ timeout: 10000 });
-    }
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Closing & material verification");
+    await expect(authenticatedPage.locator(".metric-grid")).toBeVisible();
+    await expect(authenticatedPage.getByRole("heading", { name: "Released plans" })).toBeVisible();
+    await expect(authenticatedPage.getByRole("heading", { name: "Closing history" })).toBeVisible();
+    await expect(authenticatedPage.getByText("Failed to fetch")).toHaveCount(0);
   });
 
   test("discrepancy override requires supervisor justification before closing", async ({ authenticatedPage }) => {
@@ -19,46 +15,48 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
     const overrideCheckbox = authenticatedPage.locator("input[type='checkbox']");
     if (await overrideCheckbox.isVisible()) {
       await overrideCheckbox.check();
-      const reasonField = authenticatedPage.locator("textarea[placeholder*='override'], textarea[placeholder*='reason']");
+      const reasonField = authenticatedPage.getByLabel("Supervisor override reason");
       await expect(reasonField).toBeVisible();
     }
   });
 
   test("reports & analytics loads all six operational reporting views", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Operations analytics & reports");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Operations intelligence");
+    await expect(authenticatedPage.getByText("Failed to fetch")).toHaveCount(0);
 
-    // Check all 6 report tabs
     const tabs = [
       "Stock by location",
-      "Worker custody",
-      "Material variance",
-      "Vendor history",
-      "Shift summary",
+      "Consumption variance",
+      "Production by shift",
       "Worker output",
+      "Vendor history",
+      "Worker custody",
     ];
 
     for (const tabTitle of tabs) {
-      const tabButton = authenticatedPage.locator(`button:has-text('${tabTitle}')`);
-      await expect(tabButton).toBeVisible();
+      await expect(authenticatedPage.locator(`button:has-text('${tabTitle}')`)).toBeVisible();
     }
   });
 
-  test("material variance report distinguishes unverified theoretical usage from verified counts", async ({ authenticatedPage }) => {
+  test("consumption variance report clearly distinguishes missing physical measurements from verified counts", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    const varianceTab = authenticatedPage.locator("button:has-text('Material variance')");
-    await varianceTab.click();
+    await authenticatedPage.locator("button:has-text('Consumption variance')").click();
+    await expect(authenticatedPage.getByText("Failed to fetch")).toHaveCount(0);
+    await expect(authenticatedPage.locator(".report-footnote")).toContainText(
+      "Missing physical consumption stays marked unverified"
+    );
 
-    // The table should have headers for theoretical, physical and variance status
-    const table = authenticatedPage.locator(".data-table");
-    await expect(table).toBeVisible({ timeout: 10000 });
-    const content = await table.textContent();
-    expect(content?.toLowerCase()).toMatch(/theoretical|variance|status|quantity/i);
+    // The report is populated asynchronously; wait for its actual column
+    // contract so the assertion cannot race the initial loading state.
+    const reportTable = authenticatedPage.locator("table");
+    await expect(reportTable.getByRole("columnheader", { name: "Theoretical" })).toBeVisible({ timeout: 15000 });
+    await expect(reportTable.getByRole("columnheader", { name: "Physical" })).toBeVisible({ timeout: 15000 });
+    await expect(reportTable.getByRole("columnheader", { name: "Status" })).toBeVisible({ timeout: 15000 });
   });
 
   test("reports offer CSV download capability for audited data export", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/reports");
-    const exportBtn = authenticatedPage.locator("button:has-text('Export CSV')");
-    await expect(exportBtn).toBeVisible();
+    await expect(authenticatedPage.getByRole("button", { name: "Export CSV" })).toBeVisible();
   });
 });
