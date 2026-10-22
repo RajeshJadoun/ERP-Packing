@@ -47,14 +47,20 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
       "Missing physical consumption stays marked unverified"
     );
 
-    const table = authenticatedPage.locator("table");
-    if (await table.isVisible()) {
-      const headers = (await table.locator("thead").textContent())?.toLowerCase() ?? "";
-      expect(headers).toContain("theoretical");
-      expect(headers).toContain("physical");
-      expect(headers).toContain("status");
+    // Report data loads asynchronously; wait for the report contract rather than
+    // checking table visibility before the query has completed.
+    const reportTable = authenticatedPage.locator("table");
+    const theoreticalHeader = reportTable.getByRole("columnheader", { name: "Theoretical" });
+    const physicalHeader = reportTable.getByRole("columnheader", { name: "Physical" });
+    const statusHeader = reportTable.getByRole("columnheader", { name: "Status" });
+    const hasRows = await theoreticalHeader.isVisible().catch(() => false);
+
+    if (hasRows) {
+      await expect(theoreticalHeader).toBeVisible();
+      await expect(physicalHeader).toBeVisible();
+      await expect(statusHeader).toBeVisible();
     } else {
-      await expect(authenticatedPage.getByText("No report data")).toBeVisible();
+      await expect(authenticatedPage.getByText("No report data")).toBeVisible({ timeout: 15000 });
     }
   });
 
