@@ -5,6 +5,7 @@ const STAGING_PROJECT_REF = "pcrttrimxeoiabncnfan";
 const STAGING_SUPABASE_URL = `https://${STAGING_PROJECT_REF}.supabase.co`;
 const STAGING_API_URL = "https://packing-erp-staging-api.onrender.com/api/v1";
 const STAGING_VIEWER_PROFILE_ID = "99a50dce-8d90-4421-a9dc-502546613c00";
+// Role-matrix execution is enabled only by the GitHub staging environment variable.
 const matrixEnabled = process.env.E2E_ROLE_MATRIX_ENABLED?.toLowerCase() === "true";
 
 type AppRole = "ADMIN" | "STOREKEEPER" | "PLANNER" | "OPERATOR" | "VIEWER";
