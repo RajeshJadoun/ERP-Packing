@@ -15,6 +15,13 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     await authenticatedPage.getByRole("button", { name: /New purchase order/ }).click();
     await expect(authenticatedPage.getByRole("heading", { name: "Order materials from a vendor" })).toBeVisible();
 
+    const vendor = authenticatedPage.getByLabel("Vendor");
+    const vendorOptions = await vendor.locator("option").evaluateAll(options =>
+      options.map(option => (option as HTMLOptionElement).value).filter(Boolean)
+    );
+    expect(vendorOptions.length).toBeGreaterThan(0);
+    await vendor.selectOption(vendorOptions[0]);
+
     const orderDateInput = authenticatedPage.getByLabel("Order date");
     const deliveryDateInput = authenticatedPage.getByLabel("Expected delivery");
     await orderDateInput.fill("2026-11-10");
