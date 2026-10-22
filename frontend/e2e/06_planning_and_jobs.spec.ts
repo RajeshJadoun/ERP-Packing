@@ -6,9 +6,9 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
   });
 
   test("loads daily plans console with shift metrics and plan table", async ({ authenticatedPage }) => {
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Daily packing plans");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Daily packing plans");
     await expect(authenticatedPage.locator(".metric-grid")).toBeVisible();
-    await expect(authenticatedPage.locator(".data-table")).toBeVisible({ timeout: 10000 });
+    await expect(authenticatedPage.locator("table")).toBeVisible({ timeout: 10000 });
   });
 
   test("create plan modal supports multiple jobs with master BOMs and custom recipes", async ({ authenticatedPage }) => {
@@ -40,10 +40,10 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
 
   test("loads job detail page and displays 5-variable quantity conservation invariant", async ({ authenticatedPage }) => {
     await authenticatedPage.goto("/daily-plans/jobs");
-    await expect(authenticatedPage.locator(".page-header h1")).toContainText("Packing job detail");
+    await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Packing job detail");
 
     // Table of jobs or message
-    const table = authenticatedPage.locator(".data-table");
+    const table = authenticatedPage.locator("table");
     await expect(table).toBeVisible({ timeout: 10000 });
 
     const openJobBtn = authenticatedPage.locator("button:has-text('Open →')").first();
