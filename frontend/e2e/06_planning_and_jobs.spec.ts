@@ -15,7 +15,7 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
     const createBtn = authenticatedPage.locator("button:has-text('Create daily plan')");
     if (await createBtn.isVisible()) {
       await createBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Check fields
@@ -68,7 +68,7 @@ test.describe("Workflow D — Daily Plans & Packing Jobs E2E", () => {
       const reviseBtn = authenticatedPage.locator("button:has-text('Revise target')");
       if (await reviseBtn.isVisible()) {
         await reviseBtn.click();
-        const modal = authenticatedPage.locator(".modal-dialog");
+        const modal = authenticatedPage.locator(".modal");
         await expect(modal).toBeVisible();
         await expect(modal.locator("h2, .modal-head")).toContainText("Revise authorized target");
         await expect(modal.locator("input[type='number']")).toBeVisible();
