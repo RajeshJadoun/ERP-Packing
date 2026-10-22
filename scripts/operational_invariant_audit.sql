@@ -85,24 +85,32 @@ daily_closing_conservation AS (
   FROM public.daily_closings
   WHERE total_planned_units <> total_completed_units + total_pending_units + total_cancelled_units
 ),
+canonical_tables AS (
+  SELECT unnest(ARRAY[
+    'profiles', 'material_categories', 'parties', 'products', 'vendors',
+    'units', 'materials', 'material_conversions', 'locations', 'workers',
+    'boms', 'bom_lines', 'bom_revision_events', 'purchase_orders',
+    'purchase_order_lines', 'goods_receipts', 'goods_receipt_lines',
+    'daily_plans', 'packing_jobs', 'packing_job_bom_snapshots',
+    'packing_job_bom_snapshot_lines', 'packing_job_revisions',
+    'packing_job_events', 'stock_reservations', 'production_completions',
+    'stock_transactions', 'material_location_balances',
+    'material_consumption_records', 'stock_adjustments', 'daily_closings',
+    'idempotency_keys', 'idempotency_responses', 'audit_logs'
+  ]) AS table_name
+),
 rls_coverage AS (
   SELECT count(*)::integer AS violations
-  FROM pg_class AS c
-  JOIN pg_namespace AS n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'public'
-    AND c.relname IN (
-      'profiles', 'material_categories', 'parties', 'products', 'vendors',
-      'units', 'materials', 'material_conversions', 'locations', 'workers',
-      'boms', 'bom_lines', 'bom_revision_events', 'purchase_orders',
-      'purchase_order_lines', 'goods_receipts', 'goods_receipt_lines',
-      'daily_plans', 'packing_jobs', 'packing_job_bom_snapshots',
-      'packing_job_bom_snapshot_lines', 'packing_job_revisions',
-      'packing_job_events', 'stock_reservations', 'production_completions',
-      'stock_transactions', 'material_location_balances',
-      'material_consumption_records', 'stock_adjustments', 'daily_closings',
-      'idempotency_keys', 'idempotency_responses', 'audit_logs'
-    )
-    AND (NOT c.relrowsecurity OR NOT c.relforcerowsecurity)
+  FROM canonical_tables AS expected
+  LEFT JOIN (
+    SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity
+    FROM pg_class AS c
+    JOIN pg_namespace AS n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relkind = 'r'
+  ) AS actual ON actual.relname = expected.table_name
+  WHERE actual.relname IS NULL
+     OR NOT actual.relrowsecurity
+     OR NOT actual.relforcerowsecurity
 ),
 results AS (
   SELECT 'active_bom_uniqueness'::text AS check_name, violations FROM active_bom_uniqueness
