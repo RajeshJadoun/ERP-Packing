@@ -43,7 +43,7 @@ test.describe("Workflow E — Purchasing & Inward Receipts E2E", () => {
     );
     await material.selectOption(materialOptions[0]);
 
-    const unit = authenticatedPage.getByLabel("Unit");
+    const unit = authenticatedPage.locator("label.field").filter({ hasText: /^Unit \*/ }).locator("select");
     await expect.poll(
       async () => (await unit.locator("option").evaluateAll(options =>
         options.map(option => (option as HTMLOptionElement).value).filter(Boolean)
