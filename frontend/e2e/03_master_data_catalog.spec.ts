@@ -23,7 +23,7 @@ test.describe("Workflow B — Master Data & Catalogs E2E", () => {
     const addBtn = authenticatedPage.locator("button:has-text('Add record')");
     if (await addBtn.isVisible()) {
       await addBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Enter invalid code with special chars
