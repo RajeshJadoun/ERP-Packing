@@ -47,21 +47,12 @@ test.describe("Workflows I & J — Shift Closing & Operational Reports E2E", () 
       "Missing physical consumption stays marked unverified"
     );
 
-    // Report data loads asynchronously; wait for the report contract rather than
-    // checking table visibility before the query has completed.
+    // The report is populated asynchronously; wait for its actual column
+    // contract so the assertion cannot race the initial loading state.
     const reportTable = authenticatedPage.locator("table");
-    const theoreticalHeader = reportTable.getByRole("columnheader", { name: "Theoretical" });
-    const physicalHeader = reportTable.getByRole("columnheader", { name: "Physical" });
-    const statusHeader = reportTable.getByRole("columnheader", { name: "Status" });
-    const hasRows = await theoreticalHeader.isVisible().catch(() => false);
-
-    if (hasRows) {
-      await expect(theoreticalHeader).toBeVisible();
-      await expect(physicalHeader).toBeVisible();
-      await expect(statusHeader).toBeVisible();
-    } else {
-      await expect(authenticatedPage.getByText("No report data")).toBeVisible({ timeout: 15000 });
-    }
+    await expect(reportTable.getByRole("columnheader", { name: "Theoretical" })).toBeVisible({ timeout: 15000 });
+    await expect(reportTable.getByRole("columnheader", { name: "Physical" })).toBeVisible({ timeout: 15000 });
+    await expect(reportTable.getByRole("columnheader", { name: "Status" })).toBeVisible({ timeout: 15000 });
   });
 
   test("reports offer CSV download capability for audited data export", async ({ authenticatedPage }) => {
