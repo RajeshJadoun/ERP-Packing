@@ -18,7 +18,8 @@ permissions:
 
 concurrency:
   group: packing-erp-authenticated-staging-e2e
-  cancel-in-progress: false
+  # Cancel superseded runs so the newest PR revision gets the staging test slot.
+  cancel-in-progress: true
 
 jobs:
   authenticated-staging-e2e:
