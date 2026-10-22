@@ -9,7 +9,7 @@ test.describe("Workflow G — Production Entry & Consumption Verification E2E", 
       const recordBtn = authenticatedPage.locator("button:has-text('Record production →'), button:has-text('New completion')").first();
       if (await recordBtn.isVisible()) {
         await recordBtn.click();
-        await expect(authenticatedPage.locator(".page-header h1")).toContainText("Record packed units");
+        await expect(authenticatedPage.getByRole("heading", { level: 1 })).toContainText("Record packed units");
 
         // Policy toggle buttons
         const autoBomBtn = authenticatedPage.locator("button:has-text('Auto-BOM backflush')");
