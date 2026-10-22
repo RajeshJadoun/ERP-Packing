@@ -38,7 +38,7 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
     await expect(authenticatedPage.locator(".version-chips")).toContainText("v1 · ACTIVE");
 
     // Check material lines inside viewer
-    const linesTable = authenticatedPage.locator(".panel-heading + .version-chips + .data-table, .data-table").last();
+    const linesTable = authenticatedPage.locator("table").last();
     const content = await linesTable.textContent();
     expect(content).toMatch(/carton|box|tape/i);
   });
@@ -47,7 +47,7 @@ test.describe("Workflow C — BOM Studio & Recipe Versioning E2E", () => {
     const createBtn = authenticatedPage.locator("button:has-text('Create BOM')");
     if (await createBtn.isVisible()) {
       await createBtn.click();
-      const modal = authenticatedPage.locator(".modal-dialog, .modal-backdrop");
+      const modal = authenticatedPage.locator(".modal");
       await expect(modal).toBeVisible();
 
       // Submit without selecting product or variant
